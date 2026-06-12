@@ -1,135 +1,105 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import Avatar from '../components/Avatar';
 import { colors } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
+import PrimaryButton from '../components/PrimaryButton';
 
 const settings = [
-    { id: '1', title: 'Account', subtitle: 'Security notifications, change number', icon: 'key' as const, bg: '#F48E24' },
-    { id: '2', title: 'Privacy', subtitle: 'Block contacts, disappearing messages', icon: 'lock-closed' as const, bg: '#3CADEF' },
-    { id: '3', title: 'Chats', subtitle: 'Theme, wallpapers, chat history', icon: 'chatbox' as const, bg: '#4CAF50' },
-    { id: '4', title: 'Notifications', subtitle: 'Message, group & call tones', icon: 'notifications' as const, bg: '#F44336' },
-    { id: '5', title: 'Storage and data', subtitle: 'Network usage, auto-download', icon: 'pie-chart' as const, bg: '#8BC34A' },
+    { id: '1', title: 'Privacy', subtitle: 'Last seen, profile photo, about', icon: 'shield-checkmark' as const },
+    { id: '2', title: 'Security', subtitle: 'Encryption key verified', icon: 'lock-closed' as const },
+    { id: '3', title: 'Storage', subtitle: '1.2 GB used', icon: 'archive' as const },
+    { id: '4', title: 'Notifications', subtitle: 'Message tone and vibration', icon: 'notifications' as const },
 ];
 
-export default function ProfileScreen({ navigation }: any) {
+export default function ProfileScreen() {
+    const { user, logout } = useAuth();
+    
     return (
-        <View style={styles.root}>
+        <SafeAreaView style={styles.root}>
             <StatusBar style="dark" />
-            <SafeAreaView edges={['top']} style={styles.header}>
-                <Text style={styles.headerTitle}>Settings</Text>
-            </SafeAreaView>
+            <View style={styles.topSection}>
+                <Avatar name="Aditya" color={colors.primary} size={82} />
+                <Text style={styles.name}>Aditya</Text>
+                <Text style={styles.number}>+91 {user?.phone || '98765 43210'}</Text>
+            </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.topSection}>
-                    <Avatar name="Aditya" color={colors.primary} size={68} />
-                    <View style={styles.profileText}>
-                        <Text style={styles.name}>Aditya</Text>
-                        <Text style={styles.status}>Frontend designer</Text>
+            {settings.map((item) => (
+                <Pressable key={item.id} style={styles.card}>
+                    <View style={styles.cardIconWrap}>
+                        <Ionicons name={item.icon} size={18} color={colors.primary} />
                     </View>
-                    <Ionicons name="qr-code-outline" size={24} color={colors.primary} style={styles.qr} />
-                </View>
+                    <View style={styles.cardBody}>
+                        <Text style={styles.cardTitle}>{item.title}</Text>
+                        <Text style={styles.cardValue}>{item.subtitle}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+                </Pressable>
+            ))}
 
-                <View style={styles.settingsGroup}>
-                    {settings.map((item, index) => (
-                        <Pressable key={item.id} style={[styles.card, index === settings.length - 1 && { borderBottomWidth: 0 }]}>
-                            <View style={[styles.cardIconWrap, { backgroundColor: item.bg }]}>
-                                <Ionicons name={item.icon} size={18} color="#fff" />
-                            </View>
-                            <View style={styles.cardBody}>
-                                <Text style={styles.cardTitle}>{item.title}</Text>
-                            </View>
-                            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
-                        </Pressable>
-                    ))}
-                </View>
-            </ScrollView>
-        </View>
+            <View style={{ marginTop: 24, paddingHorizontal: 16 }}>
+                <PrimaryButton 
+                    title="Logout" 
+                    onPress={logout} 
+                    style={{ backgroundColor: '#D9534F' }}
+                />
+            </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     root: {
         flex: 1,
-        backgroundColor: '#F2F2F7', // iOS settings gray background
-    },
-    header: {
         backgroundColor: colors.bg,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: colors.stroke,
-        paddingBottom: 10,
         paddingHorizontal: 16,
-    },
-    headerTitle: {
-        fontSize: 32,
-        fontWeight: '700',
-        color: colors.ink,
-        marginTop: 10,
-    },
-    scrollContent: {
-        paddingTop: 20,
-        paddingBottom: 100, // accommodate bottom tab
+        paddingTop: 10,
     },
     topSection: {
-        flexDirection: 'row',
+        marginTop: 18,
         alignItems: 'center',
-        backgroundColor: colors.card,
-        padding: 16,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.stroke,
-        marginBottom: 30,
-    },
-    profileText: {
-        marginLeft: 14,
-        flex: 1,
     },
     name: {
+        marginTop: 8,
         color: colors.ink,
-        fontSize: 20,
-        fontWeight: '600',
+        fontSize: 24,
+        fontWeight: '700',
     },
-    status: {
+    number: {
         marginTop: 2,
         color: colors.muted,
-        fontSize: 14,
-    },
-    qr: {
-        padding: 8,
-        backgroundColor: '#F4F6F8',
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
-    settingsGroup: {
-        backgroundColor: colors.card,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderColor: colors.stroke,
-        paddingLeft: 16,
     },
     card: {
-        paddingVertical: 12,
-        paddingRight: 16,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-        borderBottomColor: colors.stroke,
+        marginTop: 14,
+        backgroundColor: colors.card,
+        borderRadius: 14,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: colors.stroke,
         flexDirection: 'row',
         alignItems: 'center',
     },
     cardIconWrap: {
-        width: 30,
-        height: 30,
-        borderRadius: 8,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#E9F5F1',
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 14,
+        marginRight: 10,
     },
     cardBody: {
         flex: 1,
     },
     cardTitle: {
         color: colors.ink,
+        fontWeight: '600',
         fontSize: 16,
+    },
+    cardValue: {
+        marginTop: 4,
+        color: colors.muted,
     },
 });

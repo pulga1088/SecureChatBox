@@ -6,6 +6,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import FormInput from '../components/FormInput';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors } from '../constants/theme';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Otp'>;
 
@@ -15,6 +16,7 @@ export default function OtpScreen({ navigation, route }: Props) {
     const [loading, setLoading] = useState(false);
     const [touched, setTouched] = useState(false);
     const [secondsLeft, setSecondsLeft] = useState(30);
+    const { login } = useAuth();
     const canVerify = otp.trim().length >= 4;
     const otpError = touched && !canVerify ? 'Enter valid OTP' : undefined;
 
@@ -24,14 +26,19 @@ export default function OtpScreen({ navigation, route }: Props) {
         return () => clearTimeout(timer);
     }, [secondsLeft]);
 
-    const handleVerify = () => {
+    const handleVerify = async () => {
         setTouched(true);
         if (!canVerify) return;
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
-        }, 550);
+        
+        // Simulating network request
+        await new Promise(resolve => setTimeout(resolve, 550));
+        
+        // Calls our global AuthContext to log the user in.
+        // This will change the state making AppNavigator render the Home screen stack!
+        await login(phone, 'mocked-jwt-token-12345');
+        
+        setLoading(false);
     };
 
     const resendOtp = () => {

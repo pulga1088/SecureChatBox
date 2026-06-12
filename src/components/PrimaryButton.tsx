@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
 import { colors, radius } from '../constants/theme';
 
 type Props = {
@@ -7,16 +7,17 @@ type Props = {
     disabled?: boolean;
     loading?: boolean;
     onPress: () => void;
+    style?: StyleProp<ViewStyle>;
 };
 
-export default function PrimaryButton({ title, disabled = false, loading = false, onPress }: Props) {
+export default function PrimaryButton({ title, disabled = false, loading = false, onPress, style }: Props) {
     const isDisabled = disabled || loading;
 
     return (
         <Pressable
             accessibilityRole="button"
             accessibilityState={{ disabled: isDisabled, busy: loading }}
-            style={[styles.button, isDisabled && styles.disabled]}
+            style={[styles.button, isDisabled && styles.disabled, style]}
             disabled={isDisabled}
             onPress={onPress}
         >
