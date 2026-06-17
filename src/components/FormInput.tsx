@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, radius } from '../constants/theme';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 type Props = {
     value: string;
@@ -23,33 +24,41 @@ export default function FormInput({
     maxLength,
     error,
 }: Props) {
+    const ui = useResponsiveMetrics();
+
     return (
-        <View style={styles.wrap}>
-            {label ? <Text style={styles.label}>{label}</Text> : null}
-            <View style={[styles.inputWrap, !!error && styles.inputWrapError]}>
-                {prefix ? <Text style={styles.prefix}>{prefix}</Text> : null}
+        <View style={[styles.wrap, { marginBottom: ui.spacing(10) }]}>
+            {label ? <Text style={[styles.label, { marginBottom: ui.spacing(6), fontSize: ui.font(14) }]}>{label}</Text> : null}
+            <View
+                style={[
+                    styles.inputWrap,
+                    {
+                        borderRadius: ui.moderate(12),
+                        paddingHorizontal: ui.spacing(12),
+                        minHeight: ui.spacing(48),
+                    },
+                    !!error && styles.inputWrapError,
+                ]}
+            >
+                {prefix ? <Text style={[styles.prefix, { marginRight: ui.spacing(8), fontSize: ui.font(14) }]}>{prefix}</Text> : null}
                 <TextInput
                     value={value}
                     onChangeText={onChangeText}
                     keyboardType={keyboardType}
                     maxLength={maxLength}
                     placeholder={placeholder}
-                    style={styles.input}
+                    style={[styles.input, { fontSize: ui.font(15), height: ui.spacing(48) }]}
                     placeholderTextColor="#8A97A1"
                 />
             </View>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+            {error ? <Text style={[styles.error, { fontSize: ui.font(12), marginTop: ui.spacing(6) }]}>{error}</Text> : null}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrap: {
-        marginBottom: 10,
-    },
     label: {
         color: colors.ink,
-        marginBottom: 6,
         fontWeight: '600',
     },
     inputWrap: {
@@ -57,9 +66,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: colors.stroke,
-        borderRadius: radius.md,
         backgroundColor: colors.card,
-        paddingHorizontal: 12,
     },
     inputWrapError: {
         borderColor: '#D46262',
@@ -67,15 +74,11 @@ const styles = StyleSheet.create({
     prefix: {
         color: colors.ink,
         fontWeight: '600',
-        marginRight: 8,
     },
     input: {
         flex: 1,
-        height: 50,
     },
     error: {
-        marginTop: 6,
         color: '#C33C3C',
-        fontSize: 12,
     },
 });

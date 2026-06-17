@@ -15,7 +15,7 @@ export type RootStackParamList = {
     Splash: undefined;
     Login: undefined;
     Register: undefined;
-    Otp: { phone: string; mode: 'login' | 'register' };
+    Otp: { phone: string; mode: 'login' | 'register'; verificationId: string };
     Home: undefined;
     Chat: { name: string; avatarColor: string };
     Profile: undefined;

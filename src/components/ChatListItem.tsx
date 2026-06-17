@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, radius } from '../constants/theme';
 import Avatar from './Avatar';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 interface ChatListItemProps {
     name: string;
@@ -18,22 +19,25 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
     unreadCount = 0,
     onPress,
 }) => {
+    const ui = useResponsiveMetrics();
+
     return (
         <TouchableOpacity style={styles.container} onPress={onPress}>
-            <Avatar name={name} size={50} />
+            <Avatar name={name} size={ui.isCompact ? 40 : 44} />
             
-            <View style={styles.contentContainer}>
+            <View style={[styles.contentContainer, { marginLeft: ui.spacing(10) }]}>
                 <View style={styles.headerRow}>
-                    <Text style={styles.nameText} numberOfLines={1}>
+                    <Text style={[styles.nameText, { fontSize: ui.font(15) }]} numberOfLines={1}>
                         {name}
                     </Text>
-                    <Text style={styles.timeText}>{timestamp}</Text>
+                    <Text style={[styles.timeText, { fontSize: ui.font(11) }]}>{timestamp}</Text>
                 </View>
                 
                 <View style={styles.footerRow}>
                     <Text 
                         style={[
                             styles.messageText, 
+                            { fontSize: ui.font(13) },
                             unreadCount > 0 && styles.messageTextUnread
                         ]} 
                         numberOfLines={1}
@@ -57,8 +61,8 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
 const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
         backgroundColor: colors.card,
         borderBottomWidth: 1,
         borderBottomColor: colors.bg,
@@ -66,7 +70,6 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         flex: 1,
-        marginLeft: 12,
         justifyContent: 'center',
     },
     headerRow: {
@@ -76,13 +79,11 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     nameText: {
-        fontSize: 16,
         fontWeight: '600',
         color: colors.ink,
         flex: 1,
     },
     timeText: {
-        fontSize: 12,
         color: colors.muted,
         marginLeft: 8,
     },
@@ -92,7 +93,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     messageText: {
-        fontSize: 14,
         color: colors.muted,
         flex: 1,
         marginRight: 8,

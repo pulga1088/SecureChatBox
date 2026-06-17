@@ -1,19 +1,25 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import FormInput from '../components/FormInput';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors } from '../constants/theme';
+import { useResponsiveMetrics } from '../utils/responsive';
+import { requestOtp } from '../services/authApi';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
 export default function RegisterScreen({ navigation }: Props) {
+    const insets = useSafeAreaInsets();
+    const ui = useResponsiveMetrics();
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [touched, setTouched] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [apiError, setApiError] = useState<string | null>(null);
     const canContinue = name.trim().length >= 2 && phone.trim().length === 10;
 
     const nameError = touched && name.trim().length < 2 ? 'Enter your full name' : undefined;
@@ -23,17 +29,24 @@ export default function RegisterScreen({ navigation }: Props) {
         setTouched(true);
         if (!canContinue) return;
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            navigation.navigate('Otp', { phone, mode: 'register' });
-        }, 550);
+        setApiError(null);
+        requestOtp({ phone, mode: 'register', name: name.trim() })
+            .then((response) => {
+                navigation.navigate('Otp', { phone, mode: 'register', verificationId: response.verificationId });
+            })
+            .catch((error: unknown) => {
+                setApiError(error instanceof Error ? error.message : 'Failed to request OTP');
+            })
+            .finally(() => {
+                setLoading(false);
+            });
     };
 
     return (
-        <SafeAreaView style={styles.root}>
+        <SafeAreaView style={[styles.root, { paddingTop: Math.max(insets.top, ui.spacing(10)), paddingHorizontal: ui.spacing(18) }]}>
             <StatusBar style="dark" />
-            <Text style={styles.title}>Register</Text>
-            <Text style={styles.subtitle}>Create your profile for frontend demo.</Text>
+            <Text style={[styles.title, { fontSize: ui.font(30) }]}>Register</Text>
+            <Text style={[styles.subtitle, { marginTop: ui.spacing(6), marginBottom: ui.spacing(18), fontSize: ui.font(14) }]}>Create your profile for frontend demo.</Text>
 
             <FormInput
                 value={name}
@@ -53,6 +66,8 @@ export default function RegisterScreen({ navigation }: Props) {
                 error={phoneError}
             />
 
+            {apiError ? <Text style={styles.apiError}>{apiError}</Text> : null}
+
             <PrimaryButton title="Continue" disabled={!canContinue} loading={loading} onPress={handleContinue} />
         </SafeAreaView>
     );
@@ -62,17 +77,16 @@ const styles = StyleSheet.create({
     root: {
         flex: 1,
         backgroundColor: colors.bg,
-        paddingHorizontal: 18,
-        paddingTop: 16,
     },
     title: {
-        fontSize: 32,
         fontWeight: '700',
         color: colors.ink,
     },
     subtitle: {
-        marginTop: 6,
         color: colors.muted,
-        marginBottom: 18,
+    },
+    apiError: {
+        color: '#C33C3C',
+        marginBottom: 8,
     },
 });

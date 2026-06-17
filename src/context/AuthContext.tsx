@@ -7,12 +7,13 @@ type UserInfo = {
     id: string;
     phone: string;
     name?: string;
+    token?: string;
 };
 
 interface AuthContextType {
     user: UserInfo | null;
     isLoading: boolean;
-    login: (phone: string, token: string) => Promise<void>;
+    login: (user: UserInfo, token: string) => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -41,26 +42,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loadSession();
     }, []);
 
-    const login = async (phone: string, token: string) => {
-        // Integrate with your backend API here
-        setIsLoading(true);
-        try {
-            const userInfo = { id: Math.random().toString(), phone };
-            // await SecureStore.setItemAsync('user_session', JSON.stringify(userInfo));
-            setUser(userInfo);
-        } finally {
-            setIsLoading(false);
-        }
+    const login = async (user: UserInfo, token: string) => {
+        const userInfo = { ...user, token };
+        // await SecureStore.setItemAsync('user_session', JSON.stringify(userInfo));
+        setUser(userInfo);
     };
 
     const logout = async () => {
-        setIsLoading(true);
-        try {
-            // await SecureStore.deleteItemAsync('user_session');
-            setUser(null);
-        } finally {
-            setIsLoading(false);
-        }
+        // await SecureStore.deleteItemAsync('user_session');
+        setUser(null);
     };
 
     return (

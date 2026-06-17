@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import Avatar from '../components/Avatar';
 import { colors } from '../constants/theme';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'NewChat'>;
 
 export default function NewChatScreen({ navigation }: Props) {
+    const insets = useSafeAreaInsets();
+    const ui = useResponsiveMetrics();
     const [search, setSearch] = useState('');
     
     // Mock contacts
@@ -25,20 +29,20 @@ export default function NewChatScreen({ navigation }: Props) {
     );
 
     return (
-        <SafeAreaView style={styles.root}>
+        <SafeAreaView style={[styles.root, { paddingTop: Math.max(insets.top, ui.spacing(10)), paddingHorizontal: ui.spacing(16) }]}>
             <StatusBar style="dark" />
             
             <View style={styles.header}>
-                <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color={colors.ink} />
+                <Pressable onPress={() => navigation.goBack()} style={styles.backButton} hitSlop={12}>
+                    <Ionicons name="arrow-back" size={ui.font(22)} color={colors.ink} />
                 </Pressable>
-                <Text style={styles.headerTitle}>New Chat</Text>
+                <Text style={[styles.headerTitle, { fontSize: ui.font(20) }]}>New Chat</Text>
             </View>
 
             <View style={styles.searchWrap}>
-                <Ionicons name="search" size={18} color={colors.muted} />
+                <Ionicons name="search" size={ui.font(18)} color={colors.muted} />
                 <TextInput
-                    style={styles.searchInput}
+                    style={[styles.searchInput, { fontSize: ui.font(15) }]}
                     placeholder="Search by name or phone..."
                     placeholderTextColor={colors.muted}
                     value={search}
@@ -50,19 +54,19 @@ export default function NewChatScreen({ navigation }: Props) {
             <FlatList
                 data={filteredContacts}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContainer}
+                contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + ui.spacing(16) }]}
                 renderItem={({ item }) => (
                     <Pressable
-                        style={styles.contactRow}
+                        style={[styles.contactRow, { paddingVertical: ui.spacing(12) }]}
                         onPress={() => {
                             // Navigate to chat and replace the current screen so back button goes to home
                             navigation.replace('Chat', { name: item.name, avatarColor: item.avatarColor });
                         }}
                     >
-                        <Avatar name={item.name} color={item.avatarColor} size={46} />
+                        <Avatar name={item.name} color={item.avatarColor} size={ui.isCompact ? 42 : 46} />
                         <View style={styles.contactInfo}>
-                            <Text style={styles.contactName}>{item.name}</Text>
-                            <Text style={styles.contactPhone}>{item.phone}</Text>
+                            <Text style={[styles.contactName, { fontSize: ui.font(15) }]}>{item.name}</Text>
+                            <Text style={[styles.contactPhone, { fontSize: ui.font(13) }]}>{item.phone}</Text>
                         </View>
                     </Pressable>
                 )}
@@ -75,19 +79,16 @@ const styles = StyleSheet.create({
     root: {
         flex: 1,
         backgroundColor: colors.bg,
-        paddingTop: 10,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 16,
         marginBottom: 16,
     },
     backButton: {
         marginRight: 16,
     },
     headerTitle: {
-        fontSize: 20,
         fontWeight: '700',
         color: colors.ink,
     },
@@ -99,23 +100,19 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: colors.stroke,
-        paddingVertical: 10,
+        paddingVertical: 9,
         paddingHorizontal: 12,
-        marginHorizontal: 16,
         marginBottom: 16,
     },
     searchInput: {
         flex: 1,
         color: colors.ink,
-        fontSize: 16,
     },
     listContainer: {
-        paddingHorizontal: 16,
     },
     contactRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: colors.stroke,
     },
@@ -123,12 +120,10 @@ const styles = StyleSheet.create({
         marginLeft: 12,
     },
     contactName: {
-        fontSize: 16,
         fontWeight: '600',
         color: colors.ink,
     },
     contactPhone: {
-        fontSize: 14,
         color: colors.muted,
         marginTop: 2,
     },

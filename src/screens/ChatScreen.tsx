@@ -9,12 +9,14 @@ import {
     Text,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import Avatar from '../components/Avatar';
 import MessageBubble from '../components/MessageBubble';
 import ChatInputBar from '../components/ChatInputBar';
 import { colors } from '../constants/theme';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Chat'>;
 
@@ -27,6 +29,8 @@ type Message = {
 };
 
 export default function ChatScreen({ route }: Props) {
+    const insets = useSafeAreaInsets();
+    const ui = useResponsiveMetrics();
     const { name, avatarColor } = route.params;
     const [messages, setMessages] = useState<Message[]>([
         { id: 'm1', text: 'Hey, is encryption enabled?', mine: false, time: '09:10' },
@@ -61,7 +65,7 @@ export default function ChatScreen({ route }: Props) {
     );
 
     return (
-        <SafeAreaView style={styles.root}>
+        <SafeAreaView style={[styles.root, { paddingTop: Math.max(insets.top, ui.spacing(8)) }]}>
             <StatusBar style="dark" />
             {header}
 
@@ -73,7 +77,7 @@ export default function ChatScreen({ route }: Props) {
                 <FlatList
                     data={messages}
                     keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
+                    contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + ui.spacing(8) }]}
                     renderItem={({ item }) => (
                         <MessageBubble 
                             message={item.text} 
@@ -93,7 +97,6 @@ const styles = StyleSheet.create({
     root: {
         flex: 1,
         backgroundColor: colors.bg,
-        paddingTop: 10,
     },
     flex: { flex: 1 },
     header: {
@@ -113,6 +116,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
     listContent: {
-        paddingVertical: 8,
+        paddingTop: 8,
     },
 });

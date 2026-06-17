@@ -18,18 +18,6 @@ Mobile frontend for an end-to-end encrypted chat style app inspired by WhatsApp/
 - Expo Linear Gradient
 - React Native Animated API
 
-## Run on Android Emulator
-
-1. Start Android emulator from Android Studio Device Manager.
-2. In this workspace run:
-
-```bash
-npm install
-npm run android
-```
-
-This starts Metro and opens the app on your running emulator.
-
 ## Useful Scripts
 
 - `npm run start` : Start Expo/Metro

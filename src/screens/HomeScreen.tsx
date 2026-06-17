@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Animated, FlatList, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import ChatListItem from '../components/ChatListItem';
 import { colors } from '../constants/theme';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -20,6 +22,8 @@ type ChatItem = {
 
 export default function HomeScreen({ navigation }: Props) {
     const animateIn = useRef(new Animated.Value(0)).current;
+    const insets = useSafeAreaInsets();
+    const ui = useResponsiveMetrics();
     const chats = useMemo<ChatItem[]>(
         () => [
             { id: '1', name: 'Aarav', message: 'Did you push latest build?', time: '09:14', unread: 2, avatarColor: '#1B7C6E' },
@@ -35,19 +39,32 @@ export default function HomeScreen({ navigation }: Props) {
     }, [animateIn]);
 
     return (
-        <SafeAreaView style={styles.root}>
+        <SafeAreaView
+            style={[
+                styles.root,
+                {
+                    paddingTop: Math.max(insets.top, ui.spacing(8)),
+                    paddingHorizontal: ui.spacing(16),
+                },
+            ]}
+            edges={['top', 'left', 'right']}
+        >
             <StatusBar style="dark" />
-            <View style={styles.headerRow}>
-                <Text style={styles.headerTitle}>Chats</Text>
-                <Pressable onPress={() => navigation.navigate('Profile')}>
-                    <Ionicons name="person-circle" size={36} color="#0B8A6D" />
+            <View style={[styles.headerRow, { marginBottom: ui.spacing(8) }]}>
+                <Text style={[styles.headerTitle, { fontSize: ui.isCompact ? 24 : 28 }]}>Chats</Text>
+                <Pressable
+                    onPress={() => navigation.navigate('Profile')}
+                    hitSlop={16}
+                    style={styles.profileButton}
+                >
+                    <Ionicons name="person-circle" size={ui.isCompact ? 34 : 38} color="#0B8A6D" />
                 </Pressable>
             </View>
 
-            <View style={styles.searchWrap}>
-                <Ionicons name="search" size={18} color="#5B6770" />
+            <View style={[styles.searchWrap, { paddingVertical: ui.spacing(9), paddingHorizontal: ui.spacing(12) }]}>
+                <Ionicons name="search" size={ui.isCompact ? 17 : 18} color="#5B6770" />
                 <TextInput
-                    style={styles.searchInput}
+                    style={[styles.searchInput, { fontSize: ui.font(15) }]}
                     placeholder="Search messages or contacts"
                     placeholderTextColor="#8A97A1"
                 />
@@ -56,7 +73,11 @@ export default function HomeScreen({ navigation }: Props) {
             <FlatList
                 data={chats}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContainer}
+                contentContainerStyle={[
+                    styles.listContainer,
+                    { paddingBottom: insets.bottom + ui.spacing(96), paddingTop: ui.spacing(8) },
+                ]}
+                showsVerticalScrollIndicator={false}
                 renderItem={({ item, index }) => {
                     const start = index * 0.08;
                     const itemOpacity = animateIn.interpolate({
@@ -72,7 +93,7 @@ export default function HomeScreen({ navigation }: Props) {
 
                     return (
                         <Animated.View style={{ opacity: itemOpacity, transform: [{ translateY: itemRise }] }}>
-                            <ChatListItem 
+                            <ChatListItem
                                 name={item.name}
                                 lastMessage={item.message}
                                 timestamp={item.time}
@@ -84,8 +105,8 @@ export default function HomeScreen({ navigation }: Props) {
                 }}
             />
             
-            <Pressable 
-                style={styles.fab} 
+            <Pressable
+                style={[styles.fab, { bottom: Math.max(insets.bottom, ui.spacing(12)) + ui.spacing(12) }]}
                 onPress={() => navigation.navigate('NewChat')}
             >
                 <Ionicons name="chatbubbles" size={24} color="#FFFFFF" />
@@ -98,19 +119,22 @@ const styles = StyleSheet.create({
     root: {
         flex: 1,
         backgroundColor: colors.bg,
-        paddingHorizontal: 16,
-        paddingTop: 10,
     },
     headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 8,
     },
     headerTitle: {
-        fontSize: 32,
         fontWeight: '700',
         color: colors.ink,
+    },
+    profileButton: {
+        width: 48,
+        height: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     searchWrap: {
         flexDirection: 'row',
@@ -120,8 +144,6 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         borderWidth: 1,
         borderColor: colors.stroke,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
     },
     searchInput: {
         flex: 1,
@@ -174,12 +196,11 @@ const styles = StyleSheet.create({
     },
     fab: {
         position: 'absolute',
-        bottom: 24,
         right: 24,
         backgroundColor: colors.primary,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 5,

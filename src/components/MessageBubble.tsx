@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, radius } from '../constants/theme';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 interface MessageBubbleProps {
     message: string;
@@ -9,22 +10,27 @@ interface MessageBubbleProps {
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMessage, timestamp }) => {
+    const ui = useResponsiveMetrics();
+
     return (
         <View
             style={[
                 styles.container,
                 isOwnMessage ? styles.ownContainer : styles.otherContainer,
+                { marginHorizontal: ui.spacing(14), marginVertical: ui.spacing(4) },
             ]}
         >
             <View
                 style={[
                     styles.bubble,
                     isOwnMessage ? styles.ownBubble : styles.otherBubble,
+                    { maxWidth: ui.isCompact ? '84%' : '80%', paddingHorizontal: ui.spacing(12), paddingVertical: ui.spacing(8) },
                 ]}
             >
                 <Text
                     style={[
                         styles.messageText,
+                        { fontSize: ui.font(15), lineHeight: ui.spacing(20) },
                         isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
                     ]}
                 >
@@ -34,6 +40,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMessage, ti
                     <Text
                         style={[
                             styles.timeText,
+                            { fontSize: ui.font(11) },
                             isOwnMessage ? styles.ownTimeText : styles.otherTimeText,
                         ]}
                     >
@@ -47,8 +54,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwnMessage, ti
 
 const styles = StyleSheet.create({
     container: {
-        marginVertical: 4,
-        marginHorizontal: 16,
         flexDirection: 'row',
     },
     ownContainer: {
@@ -58,9 +63,6 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
     },
     bubble: {
-        maxWidth: '80%',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
     },
     ownBubble: {
         backgroundColor: colors.primary,
@@ -79,8 +81,6 @@ const styles = StyleSheet.create({
         borderColor: colors.stroke,
     },
     messageText: {
-        fontSize: 15,
-        lineHeight: 20,
     },
     ownMessageText: {
         color: '#FFFFFF',
@@ -92,10 +92,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'flex-end',
         alignItems: 'center',
-        marginTop: 4,
     },
     timeText: {
-        fontSize: 11,
     },
     ownTimeText: {
         color: 'rgba(255, 255, 255, 0.7)',

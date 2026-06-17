@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useResponsiveMetrics } from '../utils/responsive';
 
 type Props = {
     name: string;
@@ -8,9 +9,12 @@ type Props = {
 };
 
 export default function Avatar({ name, color, size = 50 }: Props) {
+    const ui = useResponsiveMetrics();
+    const finalSize = ui.round(size);
+
     return (
-        <View style={[styles.avatar, { backgroundColor: color, width: size, height: size, borderRadius: size / 2 }]}>
-            <Text style={[styles.text, { fontSize: Math.max(14, size * 0.36) }]}>{name.slice(0, 1).toUpperCase()}</Text>
+        <View style={[styles.avatar, { backgroundColor: color, width: finalSize, height: finalSize, borderRadius: finalSize / 2 }]}>
+            <Text style={[styles.text, { fontSize: Math.max(12, finalSize * 0.36) }]}>{name.slice(0, 1).toUpperCase()}</Text>
         </View>
     );
 }
