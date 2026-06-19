@@ -4,6 +4,22 @@ import { firebaseConfig } from './firebase';
 const API_KEY = firebaseConfig.apiKey;
 const SESSION_KEY = '@secure_chat_user_session';
 
+const fetchWithTimeout = async (url: string, options: RequestInit, timeout = 15000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (error: any) {
+    clearTimeout(id);
+    if (error.name === 'AbortError') {
+      throw new Error('Firebase connection timed out. Please check your internet connection.');
+    }
+    throw error;
+  }
+};
+
 export interface UserSession {
   uid: string;
   phoneNumber?: string;
@@ -23,12 +39,10 @@ export interface UserSession {
 
 /**
  * Sends an SMS OTP verification code to a phone number.
- * For local testing, add a test phone number in the Firebase Console (Auth > Sign-in Method > Phone).
- * Firebase Console testing bypasses Recaptcha checks automatically for registered test numbers.
  */
 export const sendVerificationCode = async (phoneNumber: string, recaptchaToken?: string): Promise<string> => {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://identitytoolkit.googleapis.com/v1/accounts:sendVerificationCode?key=${API_KEY}`,
       {
         method: 'POST',
@@ -49,7 +63,7 @@ export const sendVerificationCode = async (phoneNumber: string, recaptchaToken?:
       throw new Error(errMsg);
     }
 
-    return data.sessionInfo; // Return the session token used to verify the code
+    return data.sessionInfo;
   } catch (error: any) {
     console.error('Error sending verification code:', error);
     throw error;
@@ -61,7 +75,7 @@ export const sendVerificationCode = async (phoneNumber: string, recaptchaToken?:
  */
 export const verifyOTPCode = async (sessionInfo: string, code: string): Promise<UserSession> => {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=${API_KEY}`,
       {
         method: 'POST',
@@ -120,7 +134,7 @@ export const clearSession = async (): Promise<void> => {
  */
 export const signUpWithEmail = async (email: string, password: string): Promise<UserSession> => {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
       {
         method: 'POST',
@@ -158,7 +172,7 @@ export const signUpWithEmail = async (email: string, password: string): Promise<
  */
 export const signInWithEmail = async (email: string, password: string): Promise<UserSession> => {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${API_KEY}`,
       {
         method: 'POST',

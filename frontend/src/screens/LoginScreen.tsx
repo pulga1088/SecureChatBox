@@ -163,6 +163,9 @@ export const LoginScreen: React.FC = () => {
       }
 
       // Exchange Firebase ID Token for backend JWT
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
       const response = await fetch(`${BACKEND_URL}/api/auth/verify-token`, {
         method: 'POST',
         headers: {
@@ -174,8 +177,10 @@ export const LoginScreen: React.FC = () => {
           phone: isSignUpMode && formattedPhone ? formattedPhone : undefined,
           location: isSignUpMode && locationStr.trim() ? locationStr.trim() : undefined,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok || data.status === 'error') {
@@ -205,6 +210,7 @@ export const LoginScreen: React.FC = () => {
 
   const handlePhoneAuth = async (recaptchaToken: string) => {
     if (phone.trim().length < 10 || isLoading) return;
+    setShowRecaptcha(false); // Close modal immediately after receiving token
     setIsLoading(true);
     Keyboard.dismiss();
     try {

@@ -82,6 +82,9 @@ export const OTPScreen: React.FC = () => {
       const session = await verifyOTPCode(sessionInfo, code);
 
       // Exchange Firebase ID Token for backend JWT
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
       const response = await fetch(`${BACKEND_URL}/api/auth/verify-token`, {
         method: 'POST',
         headers: {
@@ -90,8 +93,10 @@ export const OTPScreen: React.FC = () => {
         body: JSON.stringify({
           idToken: session.idToken,
         }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok || data.status === 'error') {
@@ -110,7 +115,18 @@ export const OTPScreen: React.FC = () => {
         routes: [{ name: 'Home' }],
       });
     } catch (error: any) {
-      Alert.alert('Verification Failed', error.message || 'The verification code entered is incorrect.');
+      const isNetworkError = error.message?.includes('fetch') ||
+        error.message?.includes('Network') ||
+        error.message?.includes('ConnectException') ||
+        error.message?.includes('connect') ||
+        error.name === 'AbortError' ||
+        error.message?.includes('timed out');
+      Alert.alert(
+        isNetworkError ? 'Connection Error' : 'Verification Failed',
+        isNetworkError
+          ? `Could not reach backend server at ${BACKEND_URL}. Make sure the server is running and your device is on the same network.\n\nDetails: ${error.message}`
+          : (error.message || 'The verification code entered is incorrect.')
+      );
     } finally {
       setIsVerifying(false);
     }
