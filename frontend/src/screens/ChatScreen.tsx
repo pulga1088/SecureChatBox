@@ -108,7 +108,13 @@ export const ChatScreen: React.FC = () => {
 
     const handleReceiveMessage = (data: { chatId: string; message: any }) => {
       if (data.chatId === chatId) {
-        setMessages((prev) => [data.message, ...prev]);
+        setMessages((prev) => {
+          // Prevent duplicate message keys in real-time
+          if (prev.some((m) => m.id === data.message.id)) {
+            return prev;
+          }
+          return [data.message, ...prev];
+        });
         // Send read receipt if we are currently looking at this chat
         socket.emit('read_receipt', { chatId, senderId: recipientId });
       }

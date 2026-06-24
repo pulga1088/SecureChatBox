@@ -98,7 +98,7 @@ export const ProfileScreen: React.FC = () => {
               phone: response.user.phone,
               email: response.user.email,
               location: response.user.location,
-              id: response.user.id,
+              id: response.user.id || response.user._id || session.user?.id,
               profileImage: response.user.profileImage,
             }
           });

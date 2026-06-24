@@ -52,6 +52,7 @@ export const HomeScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [chats, setChats] = useState<any[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -135,14 +136,23 @@ export const HomeScreen: React.FC = () => {
       });
     };
 
+    const handleTypingStatus = ({ chatId, senderId, isTyping }: { chatId: string; senderId: string; isTyping: boolean }) => {
+      setTypingUsers((prev) => ({
+        ...prev,
+        [senderId]: isTyping,
+      }));
+    };
+
     socket.on('presence_status', handlePresence);
     socket.on('online_users_list', handleOnlineUsersList);
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('typing_status', handleTypingStatus);
 
     return () => {
       socket.off('presence_status', handlePresence);
       socket.off('online_users_list', handleOnlineUsersList);
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('typing_status', handleTypingStatus);
     };
   }, [currentUserId]);
 
@@ -162,7 +172,10 @@ export const HomeScreen: React.FC = () => {
     const peerName = peer.name;
     const avatarText = peerName.split(' ').map((n: any) => n[0]).join('').slice(0, 2).toUpperCase();
     const avatarColor = getAvatarColor(peerName);
-    const lastMsgText = item.lastMessage?.text || 'No messages yet';
+    
+    const isTyping = typingUsers[peer._id];
+    const lastMsgText = isTyping ? 'typing...' : (item.lastMessage?.text || 'No messages yet');
+    
     const timeFormatted = formatTime(item.lastMessage?.timestamp || item.updatedAt);
     const isOnline = onlineUsers.has(peer._id);
     const unreadCount = item.unreadCount || 0;
@@ -211,7 +224,16 @@ export const HomeScreen: React.FC = () => {
             </Text>
           </View>
           <View style={styles.chatMessageRow}>
-            <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
+            <Text 
+              style={[
+                styles.lastMessage, 
+                { 
+                  color: isTyping ? '#C5A880' : colors.textSecondary,
+                  fontWeight: isTyping ? '600' : '400'
+                }
+              ]} 
+              numberOfLines={1}
+            >
               {lastMsgText}
             </Text>
             {unreadCount > 0 && (
@@ -220,6 +242,7 @@ export const HomeScreen: React.FC = () => {
               </View>
             )}
           </View>
+
         </View>
       </TouchableOpacity>
     );

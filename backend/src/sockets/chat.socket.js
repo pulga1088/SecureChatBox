@@ -82,12 +82,25 @@ export const registerSocketHandlers = (io) => {
           lastMessage: message._id,
         });
 
-        // 3. Emit message to recipient and sender
-        io.to(recipientId).to(userId).emit('receive_message', {
+        // 3. Emit message to recipient (other) and sender (me) separately to ensure correct UI states
+        io.to(userId).emit('receive_message', {
           chatId,
           message: {
             id: message._id.toString(),
-            sender: message.sender.toString() === userId ? 'me' : 'other',
+            sender: 'me',
+            text: message.text,
+            timestamp: message.timestamp,
+            status: 'delivered',
+          },
+        });
+
+        io.to(recipientId).emit('receive_message', {
+          chatId,
+          message: {
+            id: message._id.toString(),
+            sender: 'other',
+            senderId: userId, // Include sender's user ID for navigating from notification
+            senderName: socket.user.name, // Include sender's name for real-time notifications
             text: message.text,
             timestamp: message.timestamp,
             status: 'delivered',

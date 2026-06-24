@@ -19,7 +19,27 @@ export const getChats = async (req, res) => {
       })
       .sort({ updatedAt: -1 });
 
-    return res.json({ status: 'success', chats });
+    // Calculate unreadCount for each chat dynamically
+    const chatsWithUnreadCount = await Promise.all(
+      chats.map(async (chat) => {
+        const otherParticipant = chat.participants.find(
+          (p) => p._id.toString() !== userId
+        );
+        let unreadCount = 0;
+        if (otherParticipant) {
+          unreadCount = await Message.countDocuments({
+            sender: otherParticipant._id,
+            receiver: userId,
+            read: false,
+          });
+        }
+        const chatObj = chat.toObject();
+        chatObj.unreadCount = unreadCount;
+        return chatObj;
+      })
+    );
+
+    return res.json({ status: 'success', chats: chatsWithUnreadCount });
   } catch (error) {
     console.error('Error fetching chats:', error);
     return res.status(500).json({ status: 'error', message: 'Failed to fetch chats' });
@@ -53,7 +73,22 @@ export const getOrCreateChat = async (req, res) => {
       chat = await Chat.findById(chat._id).populate('participants', 'name phone email profileImage status');
     }
 
-    return res.json({ status: 'success', chat });
+    const otherParticipant = chat.participants.find(
+      (p) => p._id.toString() !== senderId
+    );
+    let unreadCount = 0;
+    if (otherParticipant) {
+      unreadCount = await Message.countDocuments({
+        sender: otherParticipant._id,
+        receiver: senderId,
+        read: false,
+      });
+    }
+
+    const chatObj = chat.toObject();
+    chatObj.unreadCount = unreadCount;
+
+    return res.json({ status: 'success', chat: chatObj });
   } catch (error) {
     console.error('Error getting/creating chat:', error);
     return res.status(500).json({ status: 'error', message: 'Failed to get/create chat' });
