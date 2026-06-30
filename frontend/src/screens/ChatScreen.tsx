@@ -75,6 +75,24 @@ export const ChatScreen: React.FC = () => {
   const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<any>(null);
   const isTypingRef = useRef(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(socket?.connected || false);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const onConnect = () => setIsSocketConnected(true);
+    const onDisconnect = () => setIsSocketConnected(false);
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+
+    setIsSocketConnected(socket.connected);
+
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    };
+  }, [socket]);
 
   const fetchHistory = async () => {
     try {
@@ -228,8 +246,8 @@ export const ChatScreen: React.FC = () => {
     if (inputText.trim() === '') return;
 
     const socket = getSocket();
-    if (!socket) {
-      Alert.alert('Error', 'Connection offline. Try again later.');
+    if (!socket || !isSocketConnected) {
+      Alert.alert('Offline', 'Connection offline. Please wait for connection to restore.');
       return;
     }
 
@@ -369,8 +387,8 @@ export const ChatScreen: React.FC = () => {
               <Text style={[styles.headerName, { color: '#FFFFFF' }]} numberOfLines={1}>
                 {name}
               </Text>
-              <Text style={[styles.headerStatus, { color: isPeerTyping ? '#C5A880' : colors.textSecondary }]}>
-                {isPeerTyping ? 'typing...' : isPeerOnline ? 'online' : 'offline'}
+              <Text style={[styles.headerStatus, { color: !isSocketConnected ? '#FF3B30' : isPeerTyping ? '#C5A880' : isPeerOnline ? '#4CD964' : colors.textSecondary }]}>
+                {!isSocketConnected ? 'connecting...' : isPeerTyping ? 'typing...' : isPeerOnline ? 'online' : 'offline'}
               </Text>
             </View>
           </View>
