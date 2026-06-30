@@ -153,6 +153,57 @@ export const registerSocketHandlers = (io) => {
     });
 
     /**
+     * Emoji Reactions
+     */
+    socket.on('add_reaction', async (payload, callback) => {
+      try {
+        const { chatId, messageId, emoji } = payload;
+        if (!chatId || !messageId || !emoji) {
+          if (callback) callback({ status: 'error', message: 'Missing parameters' });
+          return;
+        }
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+          if (callback) callback({ status: 'error', message: 'Message not found' });
+          return;
+        }
+
+        const existingReactionIdx = message.reactions.findIndex(
+          (r) => r.userId.toString() === userId
+        );
+
+        if (existingReactionIdx !== -1) {
+          if (message.reactions[existingReactionIdx].emoji === emoji) {
+            message.reactions.splice(existingReactionIdx, 1);
+          } else {
+            message.reactions[existingReactionIdx].emoji = emoji;
+          }
+        } else {
+          message.reactions.push({ userId, emoji });
+        }
+
+        await message.save();
+
+        const recipientId = message.sender.toString() === userId ? message.receiver.toString() : message.sender.toString();
+        
+        const broadcastPayload = {
+          chatId,
+          messageId,
+          reactions: message.reactions,
+        };
+
+        io.to(userId).emit('message_reaction_updated', broadcastPayload);
+        io.to(recipientId).emit('message_reaction_updated', broadcastPayload);
+
+        if (callback) callback({ status: 'success', reactions: message.reactions });
+      } catch (error) {
+        console.error('Error adding reaction:', error);
+        if (callback) callback({ status: 'error', message: 'Failed to update reaction' });
+      }
+    });
+
+    /**
      * Disconnect
      */
     socket.on('disconnect', () => {

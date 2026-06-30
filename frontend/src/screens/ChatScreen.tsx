@@ -8,6 +8,9 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Modal,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
@@ -29,7 +32,21 @@ interface Message {
   text: string;
   timestamp: string;
   status: 'sent' | 'delivered' | 'read';
+  reactions?: { userId: string; emoji: string }[];
 }
+
+const POPULAR_EMOJIS = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+  '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+  '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸',
+  '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️',
+  '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡',
+  '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
+  '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯',
+  '👋', '👍', '👎', '👊', '👏', '🙌', '🙏', '💪', '❤️', '💔'
+];
+
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const formatMsgTime = (dateString: string) => {
   try {
@@ -53,6 +70,9 @@ export const ChatScreen: React.FC = () => {
   const [isPeerTyping, setIsPeerTyping] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
   const [socket, setSocket] = useState<any>(getSocket());
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<any>(null);
   const isTypingRef = useRef(false);
 
@@ -69,10 +89,11 @@ export const ChatScreen: React.FC = () => {
       if (response.status === 'success' && response.messages) {
         const mappedMessages = response.messages.map((m: any) => ({
           id: m._id,
-          sender: m.sender === session?.user?.id ? 'me' : 'other',
+          sender: m.sender === session?.user?.id || m.sender === (session?.user as any)?._id ? 'me' : 'other',
           text: m.text,
           timestamp: m.timestamp,
           status: m.read ? 'read' : m.delivered ? 'delivered' : 'sent',
+          reactions: m.reactions || [],
         })).reverse(); // FlatList is inverted, so newest first
         setMessages(mappedMessages);
       }
@@ -81,6 +102,46 @@ export const ChatScreen: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setShowEmojiPicker(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+    };
+  }, []);
+
+  const toggleEmojiPicker = () => {
+    if (showEmojiPicker) {
+      setShowEmojiPicker(false);
+      inputRef.current?.focus();
+    } else {
+      Keyboard.dismiss();
+      setShowEmojiPicker(true);
+    }
+  };
+
+  const handleReactMessage = (messageId: string, emoji: string) => {
+    if (socket) {
+      socket.emit('add_reaction', { chatId, messageId, emoji }, (response: any) => {
+        if (response && response.status === 'success') {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === messageId ? { ...m, reactions: response.reactions } : m))
+          );
+        }
+      });
+    }
+    setSelectedMessageId(null);
+  };
+
+  const handleLongPressMessage = (messageId: string) => {
+    setSelectedMessageId(messageId);
   };
 
   useEffect(() => {
@@ -142,14 +203,24 @@ export const ChatScreen: React.FC = () => {
       }
     };
 
+    const handleReactionUpdated = (data: { chatId: string; messageId: string; reactions: any[] }) => {
+      if (data.chatId === chatId) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === data.messageId ? { ...m, reactions: data.reactions } : m))
+        );
+      }
+    };
+
     socket.on('receive_message', handleReceiveMessage);
     socket.on('typing_status', handleTypingStatus);
     socket.on('messages_read_sync', handleReadSync);
+    socket.on('message_reaction_updated', handleReactionUpdated);
 
     return () => {
       socket.off('receive_message', handleReceiveMessage);
       socket.off('typing_status', handleTypingStatus);
       socket.off('messages_read_sync', handleReadSync);
+      socket.off('message_reaction_updated', handleReactionUpdated);
     };
   }, [socket, chatId, recipientId]);
 
@@ -222,9 +293,18 @@ export const ChatScreen: React.FC = () => {
 
   const renderItem = ({ item }: { item: Message }) => {
     const isMe = item.sender === 'me';
+    const reactions = item.reactions || [];
+    const reactionCounts = reactions.reduce((acc: Record<string, number>, r) => {
+      acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+      return acc;
+    }, {});
+    const uniqueEmojis = Object.keys(reactionCounts);
+
     return (
       <View style={[styles.messageRow, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
-        <View
+        <TouchableOpacity
+          onLongPress={() => handleLongPressMessage(item.id)}
+          activeOpacity={0.9}
           style={[
             styles.bubble,
             {
@@ -234,6 +314,7 @@ export const ChatScreen: React.FC = () => {
               borderTopRightRadius: isMe ? 4 : 18,
               borderTopLeftRadius: isMe ? 18 : 4,
               borderRadius: 18,
+              marginBottom: uniqueEmojis.length > 0 ? 12 : 4,
             },
           ]}
         >
@@ -246,7 +327,18 @@ export const ChatScreen: React.FC = () => {
             </Text>
             {isMe && <View style={styles.statusWrapper}>{renderStatusIcon(item.status)}</View>}
           </View>
-        </View>
+
+          {uniqueEmojis.length > 0 && (
+            <View style={[
+              styles.reactionBadge,
+              isMe ? styles.reactionBadgeMe : styles.reactionBadgeOther
+            ]}>
+              <Text style={styles.reactionBadgeText}>
+                {uniqueEmojis.join('')} {reactions.length > 1 ? reactions.length : ''}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
     );
   };
@@ -324,7 +416,21 @@ export const ChatScreen: React.FC = () => {
               <Ionicons name="add" size={26} color="#FFFFFF" />
             </TouchableOpacity>
 
+            <TouchableOpacity 
+              onPress={toggleEmojiPicker} 
+              style={{ padding: 6, marginRight: 8 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={showEmojiPicker ? "keypad-outline" : "happy-outline"} 
+                size={24} 
+                color="#FFFFFF" 
+              />
+            </TouchableOpacity>
+
             <TextInput
+              ref={inputRef}
+              onFocus={() => setShowEmojiPicker(false)}
               style={[
                 styles.input,
                 {
@@ -360,6 +466,54 @@ export const ChatScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+
+        {showEmojiPicker && (
+          <View style={[styles.emojiPickerContainer, { backgroundColor: '#121215', borderTopColor: 'rgba(255,255,255,0.06)', borderTopWidth: 1 }]}>
+            <FlatList
+              data={POPULAR_EMOJIS}
+              keyExtractor={(item) => item}
+              numColumns={8}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => setInputText((prev) => prev + item)}
+                  style={styles.emojiItem}
+                  activeOpacity={0.6}
+                >
+                  <Text style={styles.emojiText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={styles.emojiPickerContent}
+            />
+          </View>
+        )}
+
+        <Modal
+          visible={selectedMessageId !== null}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSelectedMessageId(null)}
+        >
+          <TouchableWithoutFeedback onPress={() => setSelectedMessageId(null)}>
+            <View style={styles.reactionOverlay}>
+              <View style={[styles.reactionBubbleContainer, { backgroundColor: '#1C1C24' }]}>
+                {REACTION_EMOJIS.map((emoji) => (
+                  <TouchableOpacity
+                    key={emoji}
+                    onPress={() => {
+                      if (selectedMessageId) {
+                        handleReactMessage(selectedMessageId, emoji);
+                      }
+                    }}
+                    style={styles.reactionBubbleBtn}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -499,5 +653,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 4,
+  },
+  reactionBadge: {
+    position: 'absolute',
+    bottom: -10,
+    backgroundColor: '#1E1E24',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  reactionBadgeMe: {
+    right: 12,
+  },
+  reactionBadgeOther: {
+    left: 12,
+  },
+  reactionBadgeText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+  },
+  emojiPickerContainer: {
+    height: 250,
+    width: '100%',
+  },
+  emojiPickerContent: {
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+  },
+  emojiItem: {
+    flex: 1,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiText: {
+    fontSize: 26,
+  },
+  reactionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionBubbleContainer: {
+    flexDirection: 'row',
+    borderRadius: 30,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  reactionBubbleBtn: {
+    paddingHorizontal: 10,
+  },
+  reactionBubbleEmoji: {
+    fontSize: 28,
   },
 });
