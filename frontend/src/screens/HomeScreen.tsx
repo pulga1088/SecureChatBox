@@ -149,6 +149,10 @@ export const HomeScreen: React.FC = () => {
     socket.on('receive_message', handleReceiveMessage);
     socket.on('typing_status', handleTypingStatus);
 
+    socket.emit('check_online', (usersList: string[]) => {
+      setOnlineUsers(new Set(usersList));
+    });
+
     return () => {
       socket.off('presence_status', handlePresence);
       socket.off('online_users_list', handleOnlineUsersList);

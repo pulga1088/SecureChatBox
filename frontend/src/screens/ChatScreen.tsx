@@ -171,6 +171,11 @@ export const ChatScreen: React.FC = () => {
       // Send initial read receipt
       socket.emit('read_receipt', { chatId, senderId: recipientId });
 
+      // Request current online users to resolve race condition
+      socket.emit('check_online', (usersList: string[]) => {
+        setIsPeerOnline(usersList.includes(recipientId));
+      });
+
       // Listen to presence updates to check if recipient is online
       socket.on('online_users_list', (usersList: string[]) => {
         setIsPeerOnline(usersList.includes(recipientId));

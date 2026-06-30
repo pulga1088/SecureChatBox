@@ -56,6 +56,12 @@ export const registerSocketHandlers = (io) => {
     // Send the list of currently online users to the newly connected user
     socket.emit('online_users_list', Array.from(activeConnections.keys()));
 
+    socket.on('check_online', (callback) => {
+      if (callback) {
+        callback(Array.from(activeConnections.keys()));
+      }
+    });
+
     /**
      * Send Real-Time Message
      */
