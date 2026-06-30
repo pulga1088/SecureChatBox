@@ -124,7 +124,9 @@ export const ProfileScreen: React.FC = () => {
           onPress: async () => {
             try {
               const { clearSession } = require('../services/firebaseAuth');
+              const { disconnectSocket } = require('../services/socketService');
               await clearSession();
+              disconnectSocket();
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],

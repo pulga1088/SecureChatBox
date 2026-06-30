@@ -317,46 +317,6 @@ export const LoginScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.form}>
-                  {authMode === 'signin' && (
-                    <View style={styles.methodSelector}>
-                      <TouchableOpacity
-                        style={[styles.methodButton, signInMethod === 'email' && styles.methodActiveButton]}
-                        onPress={() => {
-                          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                          setSignInMethod('email');
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons
-                          name="mail"
-                          size={16}
-                          color={signInMethod === 'email' ? '#000000' : 'rgba(255, 255, 255, 0.5)'}
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text style={[styles.methodText, signInMethod === 'email' && styles.methodActiveText]}>
-                          Email
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.methodButton, signInMethod === 'phone' && styles.methodActiveButton]}
-                        onPress={() => {
-                          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                          setSignInMethod('phone');
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Ionicons
-                          name="call"
-                          size={16}
-                          color={signInMethod === 'phone' ? '#000000' : 'rgba(255, 255, 255, 0.5)'}
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text style={[styles.methodText, signInMethod === 'phone' && styles.methodActiveText]}>
-                          Phone / OTP
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
 
                   {authMode === 'signup' && (
                     <View style={[
