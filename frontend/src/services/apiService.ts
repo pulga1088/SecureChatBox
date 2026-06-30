@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { getSession } from './firebaseAuth';
 
-export const BACKEND_URL = 'http://192.168.31.111:5001';
+export const BACKEND_URL = 'https://ckufm-49-37-214-111.free.pinggy.net';
 
 /**
  * Generic API fetch wrapper that automatically appends the backend JWT auth token.
