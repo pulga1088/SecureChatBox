@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { getSocket } from './src/services/socketService';
+import { decryptMessage } from './src/services/encryptionService';
 
 const navigationRef = createNavigationContainerRef();
 
@@ -91,7 +92,7 @@ const AppContent: React.FC = () => {
         showBanner({
           chatId: data.chatId,
           senderName: data.message.senderName || 'New Message',
-          text: data.message.text,
+          text: decryptMessage(data.message.text, data.chatId),
           senderId: data.message.senderId,
         });
       }

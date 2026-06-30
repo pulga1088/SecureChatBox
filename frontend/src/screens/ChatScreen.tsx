@@ -23,6 +23,7 @@ import { getMessages } from '../services/apiService';
 import { getSocket, connectSocket } from '../services/socketService';
 import { getSession } from '../services/firebaseAuth';
 import { ActivityIndicator, Alert } from 'react-native';
+import { encryptMessage, decryptMessage } from '../services/encryptionService';
 
 type ChatRouteProp = RouteProp<RootStackParamList, 'Chat'>;
 
@@ -108,7 +109,7 @@ export const ChatScreen: React.FC = () => {
         const mappedMessages = response.messages.map((m: any) => ({
           id: m._id,
           sender: m.sender === session?.user?.id || m.sender === (session?.user as any)?._id ? 'me' : 'other',
-          text: m.text,
+          text: decryptMessage(m.text, chatId),
           timestamp: m.timestamp,
           status: m.read ? 'read' : m.delivered ? 'delivered' : 'sent',
           reactions: m.reactions || [],
@@ -200,12 +201,16 @@ export const ChatScreen: React.FC = () => {
 
     const handleReceiveMessage = (data: { chatId: string; message: any }) => {
       if (data.chatId === chatId) {
+        const decryptedMessage = {
+          ...data.message,
+          text: decryptMessage(data.message.text, chatId),
+        };
         setMessages((prev) => {
           // Prevent duplicate message keys in real-time
-          if (prev.some((m) => m.id === data.message.id)) {
+          if (prev.some((m) => m.id === decryptedMessage.id)) {
             return prev;
           }
-          return [data.message, ...prev];
+          return [decryptedMessage, ...prev];
         });
         // Send read receipt if we are currently looking at this chat
         socket.emit('read_receipt', { chatId, senderId: recipientId });
@@ -263,12 +268,14 @@ export const ChatScreen: React.FC = () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
 
+    const encryptedText = encryptMessage(inputText.trim(), chatId);
+
     socket.emit(
       'send_message',
       {
         chatId,
         recipientId,
-        text: inputText.trim(),
+        text: encryptedText,
       },
       (res: any) => {
         if (res && res.status === 'error') {

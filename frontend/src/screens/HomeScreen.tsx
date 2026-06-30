@@ -18,6 +18,7 @@ import { getChats } from '../services/apiService';
 import { getSession } from '../services/firebaseAuth';
 import { connectSocket, getSocket } from '../services/socketService';
 import { LinearGradient } from 'expo-linear-gradient';
+import { decryptMessage } from '../services/encryptionService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -125,7 +126,7 @@ export const HomeScreen: React.FC = () => {
         updatedChats[chatIdx] = {
           ...chat,
           lastMessage: {
-            text: message.text,
+            text: decryptMessage(message.text, chatId),
             sender: isMe ? currentUserId : 'other',
             timestamp: message.timestamp,
           },
@@ -181,7 +182,7 @@ export const HomeScreen: React.FC = () => {
     const avatarColor = getAvatarColor(peerName);
     
     const isTyping = typingUsers[peer._id];
-    const lastMsgText = isTyping ? 'typing...' : (item.lastMessage?.text || 'No messages yet');
+    const lastMsgText = isTyping ? 'typing...' : (item.lastMessage?.text ? decryptMessage(item.lastMessage.text, item._id) : 'No messages yet');
     
     const timeFormatted = formatTime(item.lastMessage?.timestamp || item.updatedAt);
     const isOnline = onlineUsers.has(peer._id);
