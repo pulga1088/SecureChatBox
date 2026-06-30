@@ -47,6 +47,10 @@ export const updateProfile = async (name: string, status: string, location?: str
   });
 };
 
+export const getUserProfile = async (userId: string) => {
+  return fetchApi(`/api/users/${userId}`);
+};
+
 /**
  * Chats API
  */
