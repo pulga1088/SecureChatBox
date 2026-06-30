@@ -9,6 +9,7 @@ let socket: Socket | null = null;
  */
 export const connectSocket = (token: string): Socket => {
   if (socket) {
+    socket.auth = { token };
     if (socket.connected) return socket;
     socket.connect();
     return socket;

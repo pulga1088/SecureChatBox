@@ -99,11 +99,16 @@ const AppContent: React.FC = () => {
 
     const interval = setInterval(() => {
       const socket = getSocket();
-      if (socket && !globalListenerRegistered) {
-        socket.on('receive_message', handleGlobalMessage);
-        registeredSocket = socket;
-        globalListenerRegistered = true;
-        clearInterval(interval);
+      if (socket) {
+        if (registeredSocket !== socket) {
+          if (registeredSocket) {
+            registeredSocket.off('receive_message', handleGlobalMessage);
+          }
+          socket.on('receive_message', handleGlobalMessage);
+          registeredSocket = socket;
+        }
+      } else {
+        registeredSocket = null;
       }
     }, 1000);
 

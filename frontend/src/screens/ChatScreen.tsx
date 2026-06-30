@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { getMessages } from '../services/apiService';
-import { getSocket } from '../services/socketService';
+import { getSocket, connectSocket } from '../services/socketService';
 import { getSession } from '../services/firebaseAuth';
 import { ActivityIndicator, Alert } from 'react-native';
 
@@ -52,6 +52,7 @@ export const ChatScreen: React.FC = () => {
   const [isPeerOnline, setIsPeerOnline] = useState(false);
   const [isPeerTyping, setIsPeerTyping] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
+  const [socket, setSocket] = useState<any>(getSocket());
   const typingTimeoutRef = useRef<any>(null);
   const isTypingRef = useRef(false);
 
@@ -59,7 +60,9 @@ export const ChatScreen: React.FC = () => {
     try {
       const session = await getSession();
       if (session) {
-        setCurrentUserId(session.user?.id || '');
+        setCurrentUserId(session.user?.id || (session.user as any)?._id || '');
+        const activeSocket = connectSocket(session.backendToken || '');
+        setSocket(activeSocket);
       }
 
       const response = await getMessages(chatId);
@@ -82,8 +85,9 @@ export const ChatScreen: React.FC = () => {
 
   useEffect(() => {
     fetchHistory();
+  }, [chatId]);
 
-    const socket = getSocket();
+  useEffect(() => {
     if (socket) {
       // Send initial read receipt
       socket.emit('read_receipt', { chatId, senderId: recipientId });
@@ -98,12 +102,16 @@ export const ChatScreen: React.FC = () => {
           setIsPeerOnline(status === 'online');
         }
       });
+
+      return () => {
+        socket.off('online_users_list');
+        socket.off('presence_status');
+      };
     }
-  }, [chatId, recipientId]);
+  }, [socket, chatId, recipientId]);
 
   // Setup Socket Listeners
   useEffect(() => {
-    const socket = getSocket();
     if (!socket) return;
 
     const handleReceiveMessage = (data: { chatId: string; message: any }) => {
@@ -143,7 +151,7 @@ export const ChatScreen: React.FC = () => {
       socket.off('typing_status', handleTypingStatus);
       socket.off('messages_read_sync', handleReadSync);
     };
-  }, [chatId, recipientId]);
+  }, [socket, chatId, recipientId]);
 
   const handleSend = () => {
     if (inputText.trim() === '') return;

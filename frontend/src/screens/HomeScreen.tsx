@@ -54,6 +54,7 @@ export const HomeScreen: React.FC = () => {
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [socket, setSocket] = useState<any>(getSocket());
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
@@ -63,7 +64,8 @@ export const HomeScreen: React.FC = () => {
         setCurrentUserId(session.user?.id || (session.user as any)?._id || '');
         
         // 1. Establish Socket Connection
-        connectSocket(session.backendToken || '');
+        const activeSocket = connectSocket(session.backendToken || '');
+        setSocket(activeSocket);
         
         // 2. Fetch Chat List from API
         const response = await getChats();
@@ -90,7 +92,6 @@ export const HomeScreen: React.FC = () => {
 
   // Setup Socket listeners
   useEffect(() => {
-    const socket = getSocket();
     if (!socket) return;
 
     const handlePresence = ({ userId, status }: { userId: string; status: 'online' | 'offline' }) => {
@@ -154,7 +155,7 @@ export const HomeScreen: React.FC = () => {
       socket.off('receive_message', handleReceiveMessage);
       socket.off('typing_status', handleTypingStatus);
     };
-  }, [currentUserId]);
+  }, [socket, currentUserId]);
 
   const filteredChats = chats.filter((chat) => {
     if (!currentUserId) return false;
