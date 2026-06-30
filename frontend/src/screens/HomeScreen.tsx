@@ -60,7 +60,7 @@ export const HomeScreen: React.FC = () => {
     try {
       const session = await getSession();
       if (session) {
-        setCurrentUserId(session.user?.id || '');
+        setCurrentUserId(session.user?.id || (session.user as any)?._id || '');
         
         // 1. Establish Socket Connection
         connectSocket(session.backendToken || '');
@@ -157,6 +157,7 @@ export const HomeScreen: React.FC = () => {
   }, [currentUserId]);
 
   const filteredChats = chats.filter((chat) => {
+    if (!currentUserId) return false;
     const peer = chat.participants.find((p: any) => p._id !== currentUserId);
     if (!peer) return false;
     const nameMatch = peer.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -166,6 +167,7 @@ export const HomeScreen: React.FC = () => {
   });
 
   const renderChatItem = ({ item }: { item: any }) => {
+    if (!currentUserId) return null;
     const peer = item.participants.find((p: any) => p._id !== currentUserId);
     if (!peer) return null;
 
@@ -297,7 +299,7 @@ export const HomeScreen: React.FC = () => {
         </View>
 
         {/* Chat List */}
-        {isLoading ? (
+        {isLoading || !currentUserId ? (
           <View style={styles.emptyContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
