@@ -720,52 +720,54 @@ export const ChatScreen: React.FC = () => {
         >
           <TouchableWithoutFeedback onPress={() => setShowAttachmentMenu(false)}>
             <View style={styles.attachmentOverlay}>
-              <View style={[styles.attachmentContainer, { backgroundColor: '#1C1C24' }]}>
-                <Text style={styles.attachmentTitle}>Send Attachment</Text>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.attachmentContainer, { backgroundColor: '#1C1C24' }]}>
+                  <Text style={styles.attachmentTitle}>Send Attachment</Text>
 
-                <TouchableOpacity 
-                  onPress={handlePickImage} 
-                  style={styles.attachmentItem}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.attachmentIconWrapper, { backgroundColor: '#C5A880' }]}>
-                    <Ionicons name="image-outline" size={24} color="#000000" />
-                  </View>
-                  <Text style={styles.attachmentText}>Photo Library</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={handlePickImage} 
+                    style={styles.attachmentItem}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.attachmentIconWrapper, { backgroundColor: '#C5A880' }]}>
+                      <Ionicons name="image-outline" size={24} color="#000000" />
+                    </View>
+                    <Text style={styles.attachmentText}>Photo Library</Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity 
-                  onPress={handleTakePhoto} 
-                  style={styles.attachmentItem}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.attachmentIconWrapper, { backgroundColor: '#007AFF' }]}>
-                    <Ionicons name="camera-outline" size={24} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.attachmentText}>Take Photo</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={handleTakePhoto} 
+                    style={styles.attachmentItem}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.attachmentIconWrapper, { backgroundColor: '#007AFF' }]}>
+                      <Ionicons name="camera-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.attachmentText}>Take Photo</Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity 
-                  onPress={handlePickDocument} 
-                  style={styles.attachmentItem}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.attachmentIconWrapper, { backgroundColor: '#34C759' }]}>
-                    <Ionicons name="document-text-outline" size={24} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.attachmentText}>Document / File</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={handlePickDocument} 
+                    style={styles.attachmentItem}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.attachmentIconWrapper, { backgroundColor: '#34C759' }]}>
+                      <Ionicons name="document-text-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.attachmentText}>Document / File</Text>
+                  </TouchableOpacity>
 
-                <TouchableOpacity 
-                  onPress={() => setShowAttachmentMenu(false)} 
-                  style={[styles.attachmentItem, { borderBottomWidth: 0, marginTop: 10 }]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.attachmentText, { color: '#FF3B30', width: '100%', textAlign: 'center', fontWeight: '700' }]}>
-                    Cancel
-                  </Text>
-                </TouchableOpacity>
-              </View>
+                  <TouchableOpacity 
+                    onPress={() => setShowAttachmentMenu(false)} 
+                    style={[styles.attachmentItem, { borderBottomWidth: 0, marginTop: 10 }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.attachmentText, { color: '#FF3B30', width: '100%', textAlign: 'center', fontWeight: '700' }]}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
           </TouchableWithoutFeedback>
         </Modal>
