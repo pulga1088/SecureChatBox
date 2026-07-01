@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { getMessages, uploadFile } from '../services/apiService';
+import { getMessages, uploadFile, deleteMessageApi, clearChatApi } from '../services/apiService';
 import { getSocket, connectSocket } from '../services/socketService';
 import { getSession } from '../services/firebaseAuth';
 import { ActivityIndicator, Alert } from 'react-native';
@@ -276,6 +276,49 @@ export const ChatScreen: React.FC = () => {
     setSelectedMessageId(messageId);
   };
 
+  const handleHeaderMenuPress = () => {
+    Alert.alert(
+      'Chat Options',
+      'Choose an action for this conversation.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Chat History',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Clear Chat',
+              'Are you sure you want to delete all messages in this chat? This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Clear All',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const res = await clearChatApi(chatId);
+                      if (res && res.status === 'success') {
+                        setMessages([]);
+                        // Notify peer via socket so their screen updates instantly
+                        if (socket) {
+                          socket.emit('clear_chat_sync', { chatId });
+                        }
+                      } else {
+                        Alert.alert('Error', 'Failed to clear chat.');
+                      }
+                    } catch (err) {
+                      console.error('Clear chat error:', err);
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
   useEffect(() => {
     fetchHistory();
   }, [chatId]);
@@ -352,16 +395,32 @@ export const ChatScreen: React.FC = () => {
       }
     };
 
+    const handleMessageDeleted = (data: { chatId: string; messageId: string }) => {
+      if (data.chatId === chatId) {
+        setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+      }
+    };
+
+    const handleChatCleared = (data: { chatId: string }) => {
+      if (data.chatId === chatId) {
+        setMessages([]);
+      }
+    };
+
     socket.on('receive_message', handleReceiveMessage);
     socket.on('typing_status', handleTypingStatus);
     socket.on('messages_read_sync', handleReadSync);
     socket.on('message_reaction_updated', handleReactionUpdated);
+    socket.on('message_deleted', handleMessageDeleted);
+    socket.on('chat_cleared', handleChatCleared);
 
     return () => {
       socket.off('receive_message', handleReceiveMessage);
       socket.off('typing_status', handleTypingStatus);
       socket.off('messages_read_sync', handleReadSync);
       socket.off('message_reaction_updated', handleReactionUpdated);
+      socket.off('message_deleted', handleMessageDeleted);
+      socket.off('chat_cleared', handleChatCleared);
     };
   }, [socket, chatId, recipientId]);
 
@@ -574,6 +633,13 @@ export const ChatScreen: React.FC = () => {
             <TouchableOpacity style={styles.headerActionIcon}>
               <Ionicons name="call-outline" size={22} color="#FFFFFF" />
             </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={handleHeaderMenuPress} 
+              style={styles.headerActionIcon}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -692,22 +758,94 @@ export const ChatScreen: React.FC = () => {
         >
           <TouchableWithoutFeedback onPress={() => setSelectedMessageId(null)}>
             <View style={styles.reactionOverlay}>
-              <View style={[styles.reactionBubbleContainer, { backgroundColor: '#1C1C24' }]}>
-                {REACTION_EMOJIS.map((emoji) => (
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.messageActionsContainer, { backgroundColor: '#1C1C24' }]}>
+                  {/* Reactions List */}
+                  <View style={styles.reactionBubbleContainer}>
+                    {REACTION_EMOJIS.map((emoji) => (
+                      <TouchableOpacity
+                        key={emoji}
+                        onPress={() => {
+                          if (selectedMessageId) {
+                            handleReactMessage(selectedMessageId, emoji);
+                          }
+                        }}
+                        style={styles.reactionBubbleBtn}
+                        activeOpacity={0.6}
+                      >
+                        <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <View style={styles.actionDivider} />
+
+                  {/* Actions List */}
                   <TouchableOpacity
-                    key={emoji}
                     onPress={() => {
                       if (selectedMessageId) {
-                        handleReactMessage(selectedMessageId, emoji);
+                        const msg = messages.find(m => m.id === selectedMessageId);
+                        if (msg) {
+                          const { Clipboard } = require('react-native');
+                          let textToCopy = msg.text;
+                          if (textToCopy.startsWith('[IMAGE]:')) {
+                            textToCopy = textToCopy.slice(8);
+                          } else if (textToCopy.startsWith('[FILE]:')) {
+                            textToCopy = textToCopy.slice(7).split('|')[0];
+                          }
+                          Clipboard.setString(textToCopy);
+                          Alert.alert('Copied', 'Message text copied to clipboard!');
+                        }
                       }
+                      setSelectedMessageId(null);
                     }}
-                    style={styles.reactionBubbleBtn}
-                    activeOpacity={0.6}
+                    style={styles.actionItem}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
+                    <Ionicons name="copy-outline" size={20} color="#FFFFFF" style={{ marginRight: 12 }} />
+                    <Text style={styles.actionItemText}>Copy Message</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedMessageId) {
+                        Alert.alert(
+                          'Delete Message',
+                          'Are you sure you want to delete this message? This cannot be undone.',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: async () => {
+                                try {
+                                  const res = await deleteMessageApi(selectedMessageId);
+                                  if (res && res.status === 'success') {
+                                    setMessages((prev) => prev.filter((m) => m.id !== selectedMessageId));
+                                    if (socket) {
+                                      socket.emit('delete_message_sync', { chatId, messageId: selectedMessageId });
+                                    }
+                                  } else {
+                                    Alert.alert('Error', 'Failed to delete message.');
+                                  }
+                                } catch (err) {
+                                  console.error('Delete message error:', err);
+                                }
+                              }
+                            }
+                          ]
+                        );
+                      }
+                      setSelectedMessageId(null);
+                    }}
+                    style={styles.actionItem}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF3B30" style={{ marginRight: 12 }} />
+                    <Text style={[styles.actionItemText, { color: '#FF3B30', fontWeight: '600' }]}>Delete Message</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
           </TouchableWithoutFeedback>
         </Modal>
@@ -1082,5 +1220,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     marginTop: 10,
+  },
+  messageActionsContainer: {
+    borderRadius: 16,
+    padding: 16,
+    width: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  actionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 12,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  actionItemText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

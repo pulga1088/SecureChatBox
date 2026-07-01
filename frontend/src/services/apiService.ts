@@ -101,3 +101,21 @@ export const uploadFile = async (fileUri: string, mimeType: string, fileName: st
     return { status: 'error', message: error.message || 'File upload failed' };
   }
 };
+
+export const deleteMessageApi = async (messageId: string) => {
+  return fetchApi(`/api/chats/messages/${messageId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const clearChatApi = async (chatId: string) => {
+  return fetchApi(`/api/chats/${chatId}/messages`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteChatApi = async (chatId: string) => {
+  return fetchApi(`/api/chats/${chatId}`, {
+    method: 'DELETE',
+  });
+};

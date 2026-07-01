@@ -210,6 +210,37 @@ export const registerSocketHandlers = (io) => {
     });
 
     /**
+     * Real-time deletion sync
+     */
+    socket.on('delete_message_sync', async ({ chatId, messageId }) => {
+      try {
+        const chat = await Chat.findById(chatId);
+        if (chat) {
+          const recipientId = chat.participants.find(p => p.toString() !== userId);
+          if (recipientId) {
+            io.to(recipientId.toString()).emit('message_deleted', { chatId, messageId });
+          }
+        }
+      } catch (err) {
+        console.error('Error broadcasting delete message sync:', err);
+      }
+    });
+
+    socket.on('clear_chat_sync', async ({ chatId }) => {
+      try {
+        const chat = await Chat.findById(chatId);
+        if (chat) {
+          const recipientId = chat.participants.find(p => p.toString() !== userId);
+          if (recipientId) {
+            io.to(recipientId.toString()).emit('chat_cleared', { chatId });
+          }
+        }
+      } catch (err) {
+        console.error('Error broadcasting clear chat sync:', err);
+      }
+    });
+
+    /**
      * Disconnect
      */
     socket.on('disconnect', () => {

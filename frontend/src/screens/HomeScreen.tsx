@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -14,7 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getChats } from '../services/apiService';
+import { getChats, deleteChatApi } from '../services/apiService';
 import { getSession } from '../services/firebaseAuth';
 import { connectSocket, getSocket } from '../services/socketService';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -172,6 +173,32 @@ export const HomeScreen: React.FC = () => {
     return nameMatch || messageMatch;
   });
 
+  const handleLongPressChat = (chatId: string, peerName: string) => {
+    Alert.alert(
+      'Delete Chat',
+      `Are you sure you want to delete the chat thread with ${peerName}? All message history will be permanently deleted for you.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await deleteChatApi(chatId);
+              if (res && res.status === 'success') {
+                setChats((prev) => prev.filter((c: any) => c._id !== chatId));
+              } else {
+                Alert.alert('Error', 'Failed to delete chat thread.');
+              }
+            } catch (err) {
+              console.error('Delete chat thread error:', err);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderChatItem = ({ item }: { item: any }) => {
     if (!currentUserId) return null;
     const peer = item.participants.find((p: any) => p._id !== currentUserId);
@@ -203,6 +230,7 @@ export const HomeScreen: React.FC = () => {
             borderBottomWidth: 1,
           }
         ]}
+        onLongPress={() => handleLongPressChat(item._id, peerName)}
         onPress={() => {
           setChats((prev) => {
             const next = [...prev];
