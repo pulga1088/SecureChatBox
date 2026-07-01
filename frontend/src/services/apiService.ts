@@ -79,12 +79,13 @@ export const uploadFile = async (fileUri: string, mimeType: string, fileName: st
       throw new Error('Authentication required');
     }
 
+    // Convert file URI to Blob and File for compatibility with Expo SDK 56's WinterCG fetch
+    const fileResponse = await fetch(fileUri);
+    const blob = await fileResponse.blob();
+    const file = new File([blob], fileName, { type: mimeType });
+
     const formData = new FormData();
-    formData.append('file', {
-      uri: fileUri,
-      name: fileName,
-      type: mimeType,
-    } as any);
+    formData.append('file', file);
 
     const response = await fetch(`${BACKEND_URL}/api/upload`, {
       method: 'POST',
