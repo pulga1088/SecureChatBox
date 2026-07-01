@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { getSession } from './firebaseAuth';
 import { File as ExpoFile, UploadType } from 'expo-file-system';
 
-export const BACKEND_URL = 'https://suds-unjustly-polygon.ngrok-free.dev';
+export const BACKEND_URL = 'https://oasis-accepting-ruling-korea.trycloudflare.com';
 
 /**
  * Generic API fetch wrapper that automatically appends the backend JWT auth token.
