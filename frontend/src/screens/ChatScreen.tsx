@@ -542,7 +542,7 @@ export const ChatScreen: React.FC = () => {
               <Image
                 source={{ uri: imageUrl }}
                 style={styles.messageImage}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </TouchableOpacity>
 
@@ -1200,9 +1200,12 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   messageImage: {
-    width: 220,
-    height: 160,
-    borderRadius: 14,
+    width: 240,
+    height: 240,
+    borderRadius: 16,
+    backgroundColor: '#0F0F14',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: 4,
   },
   fileContainer: {
