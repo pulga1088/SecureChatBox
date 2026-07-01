@@ -82,6 +82,7 @@ export const ChatScreen: React.FC = () => {
   const [isSocketConnected, setIsSocketConnected] = useState(socket?.connected || false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedFullImage, setSelectedFullImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!socket) return;
@@ -492,7 +493,18 @@ export const ChatScreen: React.FC = () => {
         return null;
     }
   };
-
+  const renderImageStatusIcon = (status: Message['status']) => {
+    switch (status) {
+      case 'sent':
+        return <Ionicons name="checkmark" size={12} color="rgba(255, 255, 255, 0.6)" />;
+      case 'delivered':
+        return <Ionicons name="checkmark-done" size={12} color="rgba(255, 255, 255, 0.6)" />;
+      case 'read':
+        return <Ionicons name="checkmark-done" size={12} color="#C5A880" />;
+      default:
+        return null;
+    }
+  };
   const renderItem = ({ item }: { item: Message }) => {
     const isMe = item.sender === 'me';
     const reactions = item.reactions || [];
@@ -518,6 +530,45 @@ export const ChatScreen: React.FC = () => {
       fileName = parts[1] || 'attachment';
     }
 
+    if (isImage) {
+      return (
+        <View style={[styles.messageRow, { justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: uniqueEmojis.length > 0 ? 12 : 4 }]}>
+          <View style={styles.imageMessageContainer}>
+            <TouchableOpacity
+              onLongPress={() => handleLongPressMessage(item.id)}
+              onPress={() => setSelectedFullImage(imageUrl)}
+              activeOpacity={0.9}
+            >
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.messageImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+
+            <View style={styles.imageTimestampBadge}>
+              <Text style={styles.imageTimestampText}>
+                {formatMsgTime(item.timestamp)}
+              </Text>
+              {isMe && <View style={styles.imageStatusIcon}>{renderImageStatusIcon(item.status)}</View>}
+            </View>
+
+            {uniqueEmojis.length > 0 && (
+              <View style={[
+                styles.reactionBadge,
+                isMe ? styles.reactionBadgeMe : styles.reactionBadgeOther,
+                { bottom: -10 }
+              ]}>
+                <Text style={styles.reactionBadgeText}>
+                  {uniqueEmojis.join('')} {reactions.length > 1 ? reactions.length : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={[styles.messageRow, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
         <TouchableOpacity
@@ -533,18 +584,12 @@ export const ChatScreen: React.FC = () => {
               borderTopLeftRadius: isMe ? 18 : 4,
               borderRadius: 18,
               marginBottom: uniqueEmojis.length > 0 ? 12 : 4,
-              paddingHorizontal: isImage ? 4 : 12,
-              paddingVertical: isImage ? 4 : 8,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
             },
           ]}
         >
-          {isImage ? (
-            <Image
-              source={{ uri: imageUrl }}
-              style={styles.messageImage}
-              resizeMode="cover"
-            />
-          ) : isFile ? (
+          {isFile ? (
             <TouchableOpacity
               onPress={() => {
                 Alert.alert('Download File', `Do you want to download or open: ${fileName}?`, [
@@ -918,6 +963,32 @@ export const ChatScreen: React.FC = () => {
             </View>
           </View>
         )}
+
+        {/* Full-Screen Image Lightbox */}
+        <Modal
+          visible={selectedFullImage !== null}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSelectedFullImage(null)}
+        >
+          <View style={styles.lightboxContainer}>
+            <TouchableOpacity 
+              style={styles.lightboxCloseBtn}
+              onPress={() => setSelectedFullImage(null)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={32} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {selectedFullImage && (
+              <Image
+                source={{ uri: selectedFullImage }}
+                style={styles.lightboxImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -1247,5 +1318,47 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '500',
+  },
+  imageMessageContainer: {
+    marginVertical: 4,
+    position: 'relative',
+  },
+  imageTimestampBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  imageTimestampText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  imageStatusIcon: {
+    marginLeft: 4,
+  },
+  lightboxContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lightboxCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 999,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 24,
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '80%',
   },
 });
