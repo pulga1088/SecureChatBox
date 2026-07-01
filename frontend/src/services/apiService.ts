@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { getSession } from './firebaseAuth';
+import { File as ExpoFile, UploadType } from 'expo-file-system';
 
 export const BACKEND_URL = 'https://suds-unjustly-polygon.ngrok-free.dev';
 
@@ -79,24 +80,23 @@ export const uploadFile = async (fileUri: string, mimeType: string, fileName: st
       throw new Error('Authentication required');
     }
 
-    // Convert file URI to Blob and File for compatibility with Expo SDK 56's WinterCG fetch
-    const fileResponse = await fetch(fileUri);
-    const blob = await fileResponse.blob();
-    const file = new File([blob], fileName, { type: mimeType });
+    const file = new ExpoFile(fileUri);
+    const uploadResult = await file.upload(
+      `${BACKEND_URL}/api/upload`,
+      {
+        fieldName: 'file',
+        httpMethod: 'POST',
+        uploadType: UploadType.MULTIPART,
+        headers: {
+          'Authorization': `Bearer ${session.backendToken}`,
+          'Accept': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      }
+    );
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(`${BACKEND_URL}/api/upload`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.backendToken}`,
-        'Accept': 'application/json',
-      },
-      body: formData,
-    });
-
-    return await response.json();
+    return JSON.parse(uploadResult.body);
   } catch (error: any) {
     console.error('File upload api error:', error);
     return { status: 'error', message: error.message || 'File upload failed' };
