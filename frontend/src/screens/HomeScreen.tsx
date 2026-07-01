@@ -182,7 +182,12 @@ export const HomeScreen: React.FC = () => {
     const avatarColor = getAvatarColor(peerName);
     
     const isTyping = typingUsers[peer._id];
-    const lastMsgText = isTyping ? 'typing...' : (item.lastMessage?.text ? decryptMessage(item.lastMessage.text, item._id) : 'No messages yet');
+    let lastMsgText = isTyping ? 'typing...' : (item.lastMessage?.text ? decryptMessage(item.lastMessage.text, item._id) : 'No messages yet');
+    if (lastMsgText.startsWith('[IMAGE]:')) {
+      lastMsgText = '🖼️ Photo';
+    } else if (lastMsgText.startsWith('[FILE]:')) {
+      lastMsgText = '📄 File';
+    }
     
     const timeFormatted = formatTime(item.lastMessage?.timestamp || item.updatedAt);
     const isOnline = onlineUsers.has(peer._id);

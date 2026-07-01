@@ -11,6 +11,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Modal,
+  Image,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
@@ -19,11 +20,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { getMessages } from '../services/apiService';
+import { getMessages, uploadFile } from '../services/apiService';
 import { getSocket, connectSocket } from '../services/socketService';
 import { getSession } from '../services/firebaseAuth';
 import { ActivityIndicator, Alert } from 'react-native';
 import { encryptMessage, decryptMessage } from '../services/encryptionService';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 type ChatRouteProp = RouteProp<RootStackParamList, 'Chat'>;
 
@@ -77,6 +80,8 @@ export const ChatScreen: React.FC = () => {
   const typingTimeoutRef = useRef<any>(null);
   const isTypingRef = useRef(false);
   const [isSocketConnected, setIsSocketConnected] = useState(socket?.connected || false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (!socket) return;
@@ -145,7 +150,115 @@ export const ChatScreen: React.FC = () => {
       setShowEmojiPicker(true);
     }
   };
+  const uploadAndSendFile = async (uri: string, type: 'image' | 'file', originalName: string, mimeType: string) => {
+    setIsUploading(true);
+    setShowAttachmentMenu(false);
+    try {
+      const uploadRes = await uploadFile(uri, mimeType, originalName);
+      if (uploadRes && uploadRes.status === 'success' && uploadRes.fileUrl) {
+        const fileUrl = uploadRes.fileUrl;
+        let plainText = '';
+        if (type === 'image') {
+          plainText = `[IMAGE]:${fileUrl}`;
+        } else {
+          plainText = `[FILE]:${fileUrl}|${originalName}`;
+        }
 
+        const encryptedText = encryptMessage(plainText, chatId);
+        if (socket) {
+          socket.emit(
+            'send_message',
+            {
+              chatId,
+              recipientId,
+              text: encryptedText,
+            },
+            (res: any) => {
+              if (res && res.status === 'error') {
+                Alert.alert('Error', 'Failed to send attachment.');
+              }
+            }
+          );
+        }
+      } else {
+        Alert.alert('Upload Failed', uploadRes?.message || 'Failed to upload attachment.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'An error occurred during file upload.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Permission to access photos is required.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const uri = asset.uri;
+        const fileName = asset.fileName || `photo_${Date.now()}.jpg`;
+        const mimeType = asset.mimeType || 'image/jpeg';
+        await uploadAndSendFile(uri, 'image', fileName, mimeType);
+      }
+    } catch (err) {
+      console.error('Image picking error:', err);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Permission to access the camera is required.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const uri = asset.uri;
+        const fileName = asset.fileName || `camera_${Date.now()}.jpg`;
+        const mimeType = asset.mimeType || 'image/jpeg';
+        await uploadAndSendFile(uri, 'image', fileName, mimeType);
+      }
+    } catch (err) {
+      console.error('Camera capture error:', err);
+    }
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const uri = asset.uri;
+        const fileName = asset.name || `file_${Date.now()}`;
+        const mimeType = asset.mimeType || 'application/octet-stream';
+        await uploadAndSendFile(uri, 'file', fileName, mimeType);
+      }
+    } catch (err) {
+      console.error('Document picking error:', err);
+    }
+  };
   const handleReactMessage = (messageId: string, emoji: string) => {
     if (socket) {
       socket.emit('add_reaction', { chatId, messageId, emoji }, (response: any) => {
@@ -330,6 +443,22 @@ export const ChatScreen: React.FC = () => {
     }, {});
     const uniqueEmojis = Object.keys(reactionCounts);
 
+    const isImage = item.text.startsWith('[IMAGE]:');
+    const isFile = item.text.startsWith('[FILE]:');
+
+    let imageUrl = '';
+    if (isImage) {
+      imageUrl = item.text.slice(8);
+    }
+
+    let fileUrl = '';
+    let fileName = '';
+    if (isFile) {
+      const parts = item.text.slice(7).split('|');
+      fileUrl = parts[0];
+      fileName = parts[1] || 'attachment';
+    }
+
     return (
       <View style={[styles.messageRow, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
         <TouchableOpacity
@@ -345,12 +474,46 @@ export const ChatScreen: React.FC = () => {
               borderTopLeftRadius: isMe ? 18 : 4,
               borderRadius: 18,
               marginBottom: uniqueEmojis.length > 0 ? 12 : 4,
+              paddingHorizontal: isImage ? 4 : 12,
+              paddingVertical: isImage ? 4 : 8,
             },
           ]}
         >
-          <Text style={[styles.messageText, { color: isMe ? '#000000' : '#FFFFFF' }]}>
-            {item.text}
-          </Text>
+          {isImage ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.messageImage}
+              resizeMode="cover"
+            />
+          ) : isFile ? (
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert('Download File', `Do you want to download or open: ${fileName}?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Open', onPress: () => {
+                    const { Linking } = require('react-native');
+                    Linking.openURL(fileUrl);
+                  }}
+                ]);
+              }}
+              style={styles.fileContainer}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text" size={32} color={isMe ? '#000000' : '#FFFFFF'} />
+              <View style={styles.fileInfo}>
+                <Text style={[styles.fileNameText, { color: isMe ? '#000000' : '#FFFFFF' }]} numberOfLines={1}>
+                  {fileName}
+                </Text>
+                <Text style={[styles.fileDownloadText, { color: isMe ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' }]}>
+                  Tap to Open
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <Text style={[styles.messageText, { color: isMe ? '#000000' : '#FFFFFF' }]}>
+              {item.text}
+            </Text>
+          )}
           <View style={styles.bubbleMeta}>
             <Text style={[styles.timestamp, { color: isMe ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)' }]}>
               {formatMsgTime(item.timestamp)}
@@ -442,7 +605,11 @@ export const ChatScreen: React.FC = () => {
               borderColor: 'rgba(255, 255, 255, 0.06)',
             }
           ]}>
-            <TouchableOpacity style={styles.attachButton}>
+            <TouchableOpacity 
+              onPress={() => setShowAttachmentMenu(true)}
+              style={styles.attachButton}
+              activeOpacity={0.7}
+            >
               <Ionicons name="add" size={26} color="#FFFFFF" />
             </TouchableOpacity>
 
@@ -544,6 +711,73 @@ export const ChatScreen: React.FC = () => {
             </View>
           </TouchableWithoutFeedback>
         </Modal>
+
+        <Modal
+          visible={showAttachmentMenu}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowAttachmentMenu(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowAttachmentMenu(false)}>
+            <View style={styles.attachmentOverlay}>
+              <View style={[styles.attachmentContainer, { backgroundColor: '#1C1C24' }]}>
+                <Text style={styles.attachmentTitle}>Send Attachment</Text>
+
+                <TouchableOpacity 
+                  onPress={handlePickImage} 
+                  style={styles.attachmentItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.attachmentIconWrapper, { backgroundColor: '#C5A880' }]}>
+                    <Ionicons name="image-outline" size={24} color="#000000" />
+                  </View>
+                  <Text style={styles.attachmentText}>Photo Library</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  onPress={handleTakePhoto} 
+                  style={styles.attachmentItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.attachmentIconWrapper, { backgroundColor: '#007AFF' }]}>
+                    <Ionicons name="camera-outline" size={24} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.attachmentText}>Take Photo</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  onPress={handlePickDocument} 
+                  style={styles.attachmentItem}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.attachmentIconWrapper, { backgroundColor: '#34C759' }]}>
+                    <Ionicons name="document-text-outline" size={24} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.attachmentText}>Document / File</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  onPress={() => setShowAttachmentMenu(false)} 
+                  style={[styles.attachmentItem, { borderBottomWidth: 0, marginTop: 10 }]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.attachmentText, { color: '#FF3B30', width: '100%', textAlign: 'center', fontWeight: '700' }]}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {isUploading && (
+          <View style={styles.uploadingOverlay}>
+            <View style={styles.uploadingCard}>
+              <ActivityIndicator size="large" color="#FFFFFF" style={{ marginBottom: 12 }} />
+              <Text style={styles.uploadingText}>Encrypting & Uploading...</Text>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -753,5 +987,98 @@ const styles = StyleSheet.create({
   },
   reactionBubbleEmoji: {
     fontSize: 28,
+  },
+  messageImage: {
+    width: 220,
+    height: 160,
+    borderRadius: 14,
+    marginBottom: 4,
+  },
+  fileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    maxWidth: 240,
+  },
+  fileInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  fileNameText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  fileDownloadText: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  attachmentOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  attachmentContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  attachmentTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  attachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  attachmentIconWrapper: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  attachmentText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  uploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  uploadingCard: {
+    backgroundColor: '#1C1C24',
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  uploadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginTop: 10,
   },
 });

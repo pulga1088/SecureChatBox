@@ -68,3 +68,36 @@ export const getOrCreateChat = async (recipientId: string) => {
 export const getMessages = async (chatId: string) => {
   return fetchApi(`/api/chats/${chatId}/messages`);
 };
+
+/**
+ * Upload a file to the backend uploads server
+ */
+export const uploadFile = async (fileUri: string, mimeType: string, fileName: string): Promise<any> => {
+  try {
+    const session = await getSession();
+    if (!session || !session.backendToken) {
+      throw new Error('Authentication required');
+    }
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri: fileUri,
+      name: fileName,
+      type: mimeType,
+    } as any);
+
+    const response = await fetch(`${BACKEND_URL}/api/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.backendToken}`,
+        'Accept': 'application/json',
+      },
+      body: formData,
+    });
+
+    return await response.json();
+  } catch (error: any) {
+    console.error('File upload api error:', error);
+    return { status: 'error', message: error.message || 'File upload failed' };
+  }
+};
