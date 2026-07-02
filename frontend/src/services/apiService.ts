@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { getSession } from './firebaseAuth';
 import { File as ExpoFile, UploadType } from 'expo-file-system';
 
-export const BACKEND_URL = 'https://producer-newspapers-joins-lakes.trycloudflare.com';
+export const BACKEND_URL = 'https://many-decent-somebody-add.trycloudflare.com';
 
 /**
  * Generic API fetch wrapper that automatically appends the backend JWT auth token.
