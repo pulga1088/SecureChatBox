@@ -16,6 +16,7 @@ const normalizePhone = (phone) => {
  * and signs a backend JWT token for all future API/socket calls.
  */
 export const verifyFirebaseToken = async (req, res) => {
+  console.log('verifyFirebaseToken received body:', req.body);
   const { idToken, name, phone, location } = req.body;
 
   if (!idToken) {
@@ -27,6 +28,7 @@ export const verifyFirebaseToken = async (req, res) => {
 
   try {
     const apiKey = process.env.FIREBASE_API_KEY || 'AIzaSyDoUafdDyp8cU4Ck9R2X1l_wWNEISxejPA'; // Defaults to user project API key
+    console.log('Using Firebase API key:', apiKey);
     
     // 1. Verify token validity by calling Google accounts lookup REST endpoint
     const response = await fetch(
