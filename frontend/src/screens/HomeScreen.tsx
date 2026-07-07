@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -14,10 +15,11 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getChats } from '../services/apiService';
+import { getChats, deleteChatApi } from '../services/apiService';
 import { getSession } from '../services/firebaseAuth';
 import { connectSocket, getSocket } from '../services/socketService';
 import { LinearGradient } from 'expo-linear-gradient';
+import { decryptMessage } from '../services/encryptionService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -52,17 +54,20 @@ export const HomeScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [chats, setChats] = useState<any[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
   const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [socket, setSocket] = useState<any>(getSocket());
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
     try {
       const session = await getSession();
       if (session) {
-        setCurrentUserId(session.user?.id || '');
+        setCurrentUserId(session.user?.id || (session.user as any)?._id || '');
         
         // 1. Establish Socket Connection
-        connectSocket(session.backendToken || '');
+        const activeSocket = connectSocket(session.backendToken || '');
+        setSocket(activeSocket);
         
         // 2. Fetch Chat List from API
         const response = await getChats();
@@ -89,7 +94,6 @@ export const HomeScreen: React.FC = () => {
 
   // Setup Socket listeners
   useEffect(() => {
-    const socket = getSocket();
     if (!socket) return;
 
     const handlePresence = ({ userId, status }: { userId: string; status: 'online' | 'offline' }) => {
@@ -123,7 +127,7 @@ export const HomeScreen: React.FC = () => {
         updatedChats[chatIdx] = {
           ...chat,
           lastMessage: {
-            text: message.text,
+            text: decryptMessage(message.text, chatId),
             sender: isMe ? currentUserId : 'other',
             timestamp: message.timestamp,
           },
@@ -135,18 +139,32 @@ export const HomeScreen: React.FC = () => {
       });
     };
 
+    const handleTypingStatus = ({ chatId, senderId, isTyping }: { chatId: string; senderId: string; isTyping: boolean }) => {
+      setTypingUsers((prev) => ({
+        ...prev,
+        [senderId]: isTyping,
+      }));
+    };
+
     socket.on('presence_status', handlePresence);
     socket.on('online_users_list', handleOnlineUsersList);
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('typing_status', handleTypingStatus);
+
+    socket.emit('check_online', (usersList: string[]) => {
+      setOnlineUsers(new Set(usersList));
+    });
 
     return () => {
       socket.off('presence_status', handlePresence);
       socket.off('online_users_list', handleOnlineUsersList);
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('typing_status', handleTypingStatus);
     };
-  }, [currentUserId]);
+  }, [socket, currentUserId]);
 
   const filteredChats = chats.filter((chat) => {
+    if (!currentUserId) return false;
     const peer = chat.participants.find((p: any) => p._id !== currentUserId);
     if (!peer) return false;
     const nameMatch = peer.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -155,14 +173,49 @@ export const HomeScreen: React.FC = () => {
     return nameMatch || messageMatch;
   });
 
+  const handleLongPressChat = (chatId: string, peerName: string) => {
+    Alert.alert(
+      'Delete Chat',
+      `Are you sure you want to delete the chat thread with ${peerName}? All message history will be permanently deleted for you.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await deleteChatApi(chatId);
+              if (res && res.status === 'success') {
+                setChats((prev) => prev.filter((c: any) => c._id !== chatId));
+              } else {
+                Alert.alert('Error', 'Failed to delete chat thread.');
+              }
+            } catch (err) {
+              console.error('Delete chat thread error:', err);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderChatItem = ({ item }: { item: any }) => {
+    if (!currentUserId) return null;
     const peer = item.participants.find((p: any) => p._id !== currentUserId);
     if (!peer) return null;
 
     const peerName = peer.name;
     const avatarText = peerName.split(' ').map((n: any) => n[0]).join('').slice(0, 2).toUpperCase();
     const avatarColor = getAvatarColor(peerName);
-    const lastMsgText = item.lastMessage?.text || 'No messages yet';
+    
+    const isTyping = typingUsers[peer._id];
+    let lastMsgText = isTyping ? 'typing...' : (item.lastMessage?.text ? decryptMessage(item.lastMessage.text, item._id) : 'No messages yet');
+    if (lastMsgText.startsWith('[IMAGE]:')) {
+      lastMsgText = '🖼️ Photo';
+    } else if (lastMsgText.startsWith('[FILE]:')) {
+      lastMsgText = '📄 File';
+    }
+    
     const timeFormatted = formatTime(item.lastMessage?.timestamp || item.updatedAt);
     const isOnline = onlineUsers.has(peer._id);
     const unreadCount = item.unreadCount || 0;
@@ -177,6 +230,7 @@ export const HomeScreen: React.FC = () => {
             borderBottomWidth: 1,
           }
         ]}
+        onLongPress={() => handleLongPressChat(item._id, peerName)}
         onPress={() => {
           setChats((prev) => {
             const next = [...prev];
@@ -211,7 +265,16 @@ export const HomeScreen: React.FC = () => {
             </Text>
           </View>
           <View style={styles.chatMessageRow}>
-            <Text style={[styles.lastMessage, { color: colors.textSecondary }]} numberOfLines={1}>
+            <Text 
+              style={[
+                styles.lastMessage, 
+                { 
+                  color: isTyping ? '#C5A880' : colors.textSecondary,
+                  fontWeight: isTyping ? '600' : '400'
+                }
+              ]} 
+              numberOfLines={1}
+            >
               {lastMsgText}
             </Text>
             {unreadCount > 0 && (
@@ -220,6 +283,7 @@ export const HomeScreen: React.FC = () => {
               </View>
             )}
           </View>
+
         </View>
       </TouchableOpacity>
     );
@@ -274,7 +338,7 @@ export const HomeScreen: React.FC = () => {
         </View>
 
         {/* Chat List */}
-        {isLoading ? (
+        {isLoading || !currentUserId ? (
           <View style={styles.emptyContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>

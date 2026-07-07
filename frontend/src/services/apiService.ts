@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 import { getSession } from './firebaseAuth';
+import { File as ExpoFile, UploadType } from 'expo-file-system';
 
-export const BACKEND_URL = 'http://10.0.2.2:5001';
+export const BACKEND_URL = 'https://many-decent-somebody-add.trycloudflare.com';
 
 /**
  * Generic API fetch wrapper that automatically appends the backend JWT auth token.
@@ -47,6 +48,10 @@ export const updateProfile = async (name: string, status: string, location?: str
   });
 };
 
+export const getUserProfile = async (userId: string) => {
+  return fetchApi(`/api/users/${userId}`);
+};
+
 /**
  * Chats API
  */
@@ -63,4 +68,55 @@ export const getOrCreateChat = async (recipientId: string) => {
 
 export const getMessages = async (chatId: string) => {
   return fetchApi(`/api/chats/${chatId}/messages`);
+};
+
+/**
+ * Upload a file to the backend uploads server
+ */
+export const uploadFile = async (fileUri: string, mimeType: string, fileName: string): Promise<any> => {
+  try {
+    const session = await getSession();
+    if (!session || !session.backendToken) {
+      throw new Error('Authentication required');
+    }
+
+    const file = new ExpoFile(fileUri);
+    const uploadResult = await file.upload(
+      `${BACKEND_URL}/api/upload`,
+      {
+        fieldName: 'file',
+        httpMethod: 'POST',
+        uploadType: UploadType.MULTIPART,
+        headers: {
+          'Authorization': `Bearer ${session.backendToken}`,
+          'Accept': 'application/json',
+          'Bypass-Tunnel-Reminder': 'true',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      }
+    );
+
+    return JSON.parse(uploadResult.body);
+  } catch (error: any) {
+    console.error('File upload api error:', error);
+    return { status: 'error', message: error.message || 'File upload failed' };
+  }
+};
+
+export const deleteMessageApi = async (messageId: string) => {
+  return fetchApi(`/api/chats/messages/${messageId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const clearChatApi = async (chatId: string) => {
+  return fetchApi(`/api/chats/${chatId}/messages`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteChatApi = async (chatId: string) => {
+  return fetchApi(`/api/chats/${chatId}`, {
+    method: 'DELETE',
+  });
 };

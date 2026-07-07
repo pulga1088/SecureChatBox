@@ -12,7 +12,7 @@ import {
   Animated,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,10 +20,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
+type ProfileRouteProp = RouteProp<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<ProfileRouteProp>();
+  const peerUserId = route.params?.userId;
+
+  const [isOwnProfile, setIsOwnProfile] = useState(true);
 
   const editScale = useRef(new Animated.Value(1)).current;
   const logoutScale = useRef(new Animated.Value(1)).current;
@@ -59,21 +64,38 @@ export const ProfileScreen: React.FC = () => {
       try {
         const { getSession } = require('../services/firebaseAuth');
         const session = await getSession();
-        if (session && session.user) {
-          setName(session.user.name || '');
-          setStatus(session.user.status || '');
-          setPhone(session.user.phone || '');
-          setEmail(session.user.email || '');
-          setLocation(session.user.location || '');
+        const loggedInUserId = session?.user?.id || (session?.user as any)?._id;
+        
+        const isOwn = !peerUserId || peerUserId === loggedInUserId;
+        setIsOwnProfile(isOwn);
+
+        if (isOwn) {
+          if (session && session.user) {
+            setName(session.user.name || '');
+            setStatus(session.user.status || '');
+            setPhone(session.user.phone || '');
+            setEmail(session.user.email || '');
+            setLocation(session.user.location || '');
+          }
+        } else {
+          const { getUserProfile } = require('../services/apiService');
+          const data = await getUserProfile(peerUserId);
+          if (data.status === 'success' && data.user) {
+            setName(data.user.name || '');
+            setStatus(data.user.status || '');
+            setPhone(data.user.phone || '');
+            setEmail(data.user.email || '');
+            setLocation(data.user.location || '');
+          }
         }
       } catch (error) {
-        console.error('Failed to load profile from session:', error);
+        console.error('Failed to load profile:', error);
       } finally {
         setIsLoading(false);
       }
     };
     loadProfile();
-  }, []);
+  }, [peerUserId]);
 
   const handleSave = async () => {
     if (name.trim() === '') {
@@ -98,7 +120,7 @@ export const ProfileScreen: React.FC = () => {
               phone: response.user.phone,
               email: response.user.email,
               location: response.user.location,
-              id: response.user.id,
+              id: response.user.id || response.user._id || session.user?.id,
               profileImage: response.user.profileImage,
             }
           });
@@ -124,7 +146,9 @@ export const ProfileScreen: React.FC = () => {
           onPress: async () => {
             try {
               const { clearSession } = require('../services/firebaseAuth');
+              const { disconnectSocket } = require('../services/socketService');
               await clearSession();
+              disconnectSocket();
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],
@@ -182,19 +206,25 @@ export const ProfileScreen: React.FC = () => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Profile</Text>
-          <Animated.View style={{ transform: [{ scale: editScale }] }}>
-            <TouchableOpacity
-              onPressIn={() => handlePressIn(editScale)}
-              onPressOut={() => handlePressOut(editScale)}
-              onPress={isEditing ? handleSave : () => setIsEditing(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.headerAction, { color: '#C5A880' }]}>
-                {isEditing ? 'Save' : 'Edit'}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>
+            {isOwnProfile ? 'Profile' : 'Friend Profile'}
+          </Text>
+          {isOwnProfile ? (
+            <Animated.View style={{ transform: [{ scale: editScale }] }}>
+              <TouchableOpacity
+                onPressIn={() => handlePressIn(editScale)}
+                onPressOut={() => handlePressOut(editScale)}
+                onPress={isEditing ? handleSave : () => setIsEditing(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.headerAction, { color: '#C5A880' }]}>
+                  {isEditing ? 'Save' : 'Edit'}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ) : (
+            <View style={{ width: 32 }} />
+          )}
         </View>
 
         <KeyboardAvoidingView
@@ -206,15 +236,17 @@ export const ProfileScreen: React.FC = () => {
             <View style={styles.avatarSection}>
               <View style={[styles.avatar, { backgroundColor: '#222226', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }]}>
                 <Text style={styles.avatarText}>{getInitials(name)}</Text>
-                <TouchableOpacity style={[
-                  styles.editAvatarBtn,
-                  {
-                    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-                    borderColor: 'rgba(255, 255, 255, 0.06)',
-                  }
-                ]}>
-                  <Ionicons name="camera" size={16} color="#FFFFFF" />
-                </TouchableOpacity>
+                {isOwnProfile && (
+                  <TouchableOpacity style={[
+                    styles.editAvatarBtn,
+                    {
+                      backgroundColor: 'rgba(0, 0, 0, 0.65)',
+                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                    }
+                  ]}>
+                    <Ionicons name="camera" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -358,24 +390,26 @@ export const ProfileScreen: React.FC = () => {
             </View>
 
             {/* Logout Button */}
-            <Animated.View style={{ transform: [{ scale: logoutScale }] }}>
-              <TouchableOpacity
-                onPressIn={() => handlePressIn(logoutScale)}
-                onPressOut={() => handlePressOut(logoutScale)}
-                style={[
-                  styles.logoutBtn,
-                  {
-                    backgroundColor: 'rgba(255, 77, 77, 0.05)',
-                    borderColor: 'rgba(255, 77, 77, 0.12)',
-                  }
-                ]}
-                onPress={handleLogout}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-                <Text style={[styles.logoutText, { color: colors.danger }]}>Log Out</Text>
-              </TouchableOpacity>
-            </Animated.View>
+            {isOwnProfile && (
+              <Animated.View style={{ transform: [{ scale: logoutScale }] }}>
+                <TouchableOpacity
+                  onPressIn={() => handlePressIn(logoutScale)}
+                  onPressOut={() => handlePressOut(logoutScale)}
+                  style={[
+                    styles.logoutBtn,
+                    {
+                      backgroundColor: 'rgba(255, 77, 77, 0.05)',
+                      borderColor: 'rgba(255, 77, 77, 0.12)',
+                    }
+                  ]}
+                  onPress={handleLogout}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="log-out-outline" size={20} color={colors.danger} />
+                  <Text style={[styles.logoutText, { color: colors.danger }]}>Log Out</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

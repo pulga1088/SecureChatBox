@@ -7,6 +7,7 @@ import connectDB from './config/db.js';
 import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 import { registerSocketHandlers } from './sockets/chat.socket.js';
 
 dotenv.config();
@@ -37,6 +38,8 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/uploads', express.static('uploads'));
 
 // Serve reCAPTCHA page for WebView
 app.get('/recaptcha', (req, res) => {

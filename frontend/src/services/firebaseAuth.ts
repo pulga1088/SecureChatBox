@@ -108,11 +108,14 @@ export const getSession = async (): Promise<UserSession | null> => {
   return sessionData ? JSON.parse(sessionData) : null;
 };
 
-/**
- * Clears the user session (signs out).
- */
 export const clearSession = async (): Promise<void> => {
   await AsyncStorage.removeItem(SESSION_KEY);
+  try {
+    const { disconnectSocket } = require('./socketService');
+    disconnectSocket();
+  } catch (e) {
+    console.error('Error disconnecting socket during session clear:', e);
+  }
 };
 
 /**

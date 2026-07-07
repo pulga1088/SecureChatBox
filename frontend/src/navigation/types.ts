@@ -5,6 +5,6 @@ export type RootStackParamList = {
   Home: undefined;
   Chat: { chatId: string; name: string; recipientId: string };
   NewChat: undefined;
-  Profile: undefined;
+  Profile: { userId?: string; name?: string } | undefined;
   Settings: undefined;
 };

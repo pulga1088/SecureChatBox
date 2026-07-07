@@ -10,6 +10,8 @@ import { getMongoUri } from './config/mongo.js';
 dotenv.config();
 
 const MONGODB_URI = getMongoUri();
+dotenv.config();
+
 const JWT_SECRET = process.env.JWT_SECRET || 'default_jwt_secret_key_change_in_production_12345';
 const PORT = process.env.PORT || 5001;
 const SOCKET_URL = `http://localhost:${PORT}`;

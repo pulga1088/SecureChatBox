@@ -56,6 +56,12 @@ export const registerSocketHandlers = (io) => {
     // Send the list of currently online users to the newly connected user
     socket.emit('online_users_list', Array.from(activeConnections.keys()));
 
+    socket.on('check_online', (callback) => {
+      if (callback) {
+        callback(Array.from(activeConnections.keys()));
+      }
+    });
+
     /**
      * Send Real-Time Message
      */
@@ -82,12 +88,25 @@ export const registerSocketHandlers = (io) => {
           lastMessage: message._id,
         });
 
-        // 3. Emit message to recipient and sender
-        io.to(recipientId).to(userId).emit('receive_message', {
+        // 3. Emit message to recipient (other) and sender (me) separately to ensure correct UI states
+        io.to(userId).emit('receive_message', {
           chatId,
           message: {
             id: message._id.toString(),
-            sender: message.sender.toString() === userId ? 'me' : 'other',
+            sender: 'me',
+            text: message.text,
+            timestamp: message.timestamp,
+            status: 'delivered',
+          },
+        });
+
+        io.to(recipientId).emit('receive_message', {
+          chatId,
+          message: {
+            id: message._id.toString(),
+            sender: 'other',
+            senderId: userId, // Include sender's user ID for navigating from notification
+            senderName: socket.user.name, // Include sender's name for real-time notifications
             text: message.text,
             timestamp: message.timestamp,
             status: 'delivered',
@@ -136,6 +155,88 @@ export const registerSocketHandlers = (io) => {
         });
       } catch (error) {
         console.error('Error updating read receipts:', error);
+      }
+    });
+
+    /**
+     * Emoji Reactions
+     */
+    socket.on('add_reaction', async (payload, callback) => {
+      try {
+        const { chatId, messageId, emoji } = payload;
+        if (!chatId || !messageId || !emoji) {
+          if (callback) callback({ status: 'error', message: 'Missing parameters' });
+          return;
+        }
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+          if (callback) callback({ status: 'error', message: 'Message not found' });
+          return;
+        }
+
+        const existingReactionIdx = message.reactions.findIndex(
+          (r) => r.userId.toString() === userId
+        );
+
+        if (existingReactionIdx !== -1) {
+          if (message.reactions[existingReactionIdx].emoji === emoji) {
+            message.reactions.splice(existingReactionIdx, 1);
+          } else {
+            message.reactions[existingReactionIdx].emoji = emoji;
+          }
+        } else {
+          message.reactions.push({ userId, emoji });
+        }
+
+        await message.save();
+
+        const recipientId = message.sender.toString() === userId ? message.receiver.toString() : message.sender.toString();
+        
+        const broadcastPayload = {
+          chatId,
+          messageId,
+          reactions: message.reactions,
+        };
+
+        io.to(userId).emit('message_reaction_updated', broadcastPayload);
+        io.to(recipientId).emit('message_reaction_updated', broadcastPayload);
+
+        if (callback) callback({ status: 'success', reactions: message.reactions });
+      } catch (error) {
+        console.error('Error adding reaction:', error);
+        if (callback) callback({ status: 'error', message: 'Failed to update reaction' });
+      }
+    });
+
+    /**
+     * Real-time deletion sync
+     */
+    socket.on('delete_message_sync', async ({ chatId, messageId }) => {
+      try {
+        const chat = await Chat.findById(chatId);
+        if (chat) {
+          const recipientId = chat.participants.find(p => p.toString() !== userId);
+          if (recipientId) {
+            io.to(recipientId.toString()).emit('message_deleted', { chatId, messageId });
+          }
+        }
+      } catch (err) {
+        console.error('Error broadcasting delete message sync:', err);
+      }
+    });
+
+    socket.on('clear_chat_sync', async ({ chatId }) => {
+      try {
+        const chat = await Chat.findById(chatId);
+        if (chat) {
+          const recipientId = chat.participants.find(p => p.toString() !== userId);
+          if (recipientId) {
+            io.to(recipientId.toString()).emit('chat_cleared', { chatId });
+          }
+        }
+      } catch (err) {
+        console.error('Error broadcasting clear chat sync:', err);
       }
     });
 

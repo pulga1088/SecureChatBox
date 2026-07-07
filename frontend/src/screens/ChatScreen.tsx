@@ -8,6 +8,10 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  Modal,
+  Image,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { useRoute, RouteProp, useNavigation } from '@react-navigation/native';
@@ -16,10 +20,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { getMessages } from '../services/apiService';
-import { getSocket } from '../services/socketService';
+import { getMessages, uploadFile, deleteMessageApi, clearChatApi } from '../services/apiService';
+import { getSocket, connectSocket } from '../services/socketService';
 import { getSession } from '../services/firebaseAuth';
 import { ActivityIndicator, Alert } from 'react-native';
+import { encryptMessage, decryptMessage } from '../services/encryptionService';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 
 type ChatRouteProp = RouteProp<RootStackParamList, 'Chat'>;
 
@@ -29,7 +36,21 @@ interface Message {
   text: string;
   timestamp: string;
   status: 'sent' | 'delivered' | 'read';
+  reactions?: { userId: string; emoji: string }[];
 }
+
+const POPULAR_EMOJIS = [
+  '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+  '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+  '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🥸',
+  '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️',
+  '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡',
+  '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
+  '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯',
+  '👋', '👍', '👎', '👊', '👏', '🙌', '🙏', '💪', '❤️', '💔'
+];
+
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 const formatMsgTime = (dateString: string) => {
   try {
@@ -52,24 +73,52 @@ export const ChatScreen: React.FC = () => {
   const [isPeerOnline, setIsPeerOnline] = useState(false);
   const [isPeerTyping, setIsPeerTyping] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
+  const [socket, setSocket] = useState<any>(getSocket());
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<any>(null);
   const isTypingRef = useRef(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(socket?.connected || false);
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFullImage, setSelectedFullImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const onConnect = () => setIsSocketConnected(true);
+    const onDisconnect = () => setIsSocketConnected(false);
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+
+    setIsSocketConnected(socket.connected);
+
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    };
+  }, [socket]);
 
   const fetchHistory = async () => {
     try {
       const session = await getSession();
       if (session) {
-        setCurrentUserId(session.user?.id || '');
+        setCurrentUserId(session.user?.id || (session.user as any)?._id || '');
+        const activeSocket = connectSocket(session.backendToken || '');
+        setSocket(activeSocket);
       }
 
       const response = await getMessages(chatId);
       if (response.status === 'success' && response.messages) {
         const mappedMessages = response.messages.map((m: any) => ({
           id: m._id,
-          sender: m.sender === session?.user?.id ? 'me' : 'other',
-          text: m.text,
+          sender: m.sender === session?.user?.id || m.sender === (session?.user as any)?._id ? 'me' : 'other',
+          text: decryptMessage(m.text, chatId),
           timestamp: m.timestamp,
           status: m.read ? 'read' : m.delivered ? 'delivered' : 'sent',
+          reactions: m.reactions || [],
         })).reverse(); // FlatList is inverted, so newest first
         setMessages(mappedMessages);
       }
@@ -81,12 +130,209 @@ export const ChatScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchHistory();
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setShowEmojiPicker(false);
+      }
+    );
 
-    const socket = getSocket();
+    return () => {
+      keyboardDidShowListener.remove();
+    };
+  }, []);
+
+  const toggleEmojiPicker = () => {
+    if (showEmojiPicker) {
+      setShowEmojiPicker(false);
+      inputRef.current?.focus();
+    } else {
+      Keyboard.dismiss();
+      setShowEmojiPicker(true);
+    }
+  };
+  const uploadAndSendFile = async (uri: string, type: 'image' | 'file', originalName: string, mimeType: string) => {
+    setIsUploading(true);
+    setShowAttachmentMenu(false);
+    try {
+      const uploadRes = await uploadFile(uri, mimeType, originalName);
+      if (uploadRes && uploadRes.status === 'success' && uploadRes.fileUrl) {
+        const fileUrl = uploadRes.fileUrl;
+        let plainText = '';
+        if (type === 'image') {
+          plainText = `[IMAGE]:${fileUrl}`;
+        } else {
+          plainText = `[FILE]:${fileUrl}|${originalName}`;
+        }
+
+        const encryptedText = encryptMessage(plainText, chatId);
+        if (socket) {
+          socket.emit(
+            'send_message',
+            {
+              chatId,
+              recipientId,
+              text: encryptedText,
+            },
+            (res: any) => {
+              if (res && res.status === 'error') {
+                Alert.alert('Error', 'Failed to send attachment.');
+              }
+            }
+          );
+        }
+      } else {
+        Alert.alert('Upload Failed', uploadRes?.message || 'Failed to upload attachment.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'An error occurred during file upload.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Permission to access photos is required.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const uri = asset.uri;
+        const fileName = asset.fileName || `photo_${Date.now()}.jpg`;
+        const mimeType = asset.mimeType || 'image/jpeg';
+        await uploadAndSendFile(uri, 'image', fileName, mimeType);
+      }
+    } catch (err) {
+      console.error('Image picking error:', err);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Permission to access the camera is required.');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const uri = asset.uri;
+        const fileName = asset.fileName || `camera_${Date.now()}.jpg`;
+        const mimeType = asset.mimeType || 'image/jpeg';
+        await uploadAndSendFile(uri, 'image', fileName, mimeType);
+      }
+    } catch (err) {
+      console.error('Camera capture error:', err);
+    }
+  };
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const uri = asset.uri;
+        const fileName = asset.name || `file_${Date.now()}`;
+        const mimeType = asset.mimeType || 'application/octet-stream';
+        await uploadAndSendFile(uri, 'file', fileName, mimeType);
+      }
+    } catch (err) {
+      console.error('Document picking error:', err);
+    }
+  };
+  const handleReactMessage = (messageId: string, emoji: string) => {
+    if (socket) {
+      socket.emit('add_reaction', { chatId, messageId, emoji }, (response: any) => {
+        if (response && response.status === 'success') {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === messageId ? { ...m, reactions: response.reactions } : m))
+          );
+        }
+      });
+    }
+    setSelectedMessageId(null);
+  };
+
+  const handleLongPressMessage = (messageId: string) => {
+    setSelectedMessageId(messageId);
+  };
+
+  const handleHeaderMenuPress = () => {
+    Alert.alert(
+      'Chat Options',
+      'Choose an action for this conversation.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Chat History',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Clear Chat',
+              'Are you sure you want to delete all messages in this chat? This cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Clear All',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      const res = await clearChatApi(chatId);
+                      if (res && res.status === 'success') {
+                        setMessages([]);
+                        // Notify peer via socket so their screen updates instantly
+                        if (socket) {
+                          socket.emit('clear_chat_sync', { chatId });
+                        }
+                      } else {
+                        Alert.alert('Error', 'Failed to clear chat.');
+                      }
+                    } catch (err) {
+                      console.error('Clear chat error:', err);
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, [chatId]);
+
+  useEffect(() => {
     if (socket) {
       // Send initial read receipt
       socket.emit('read_receipt', { chatId, senderId: recipientId });
+
+      // Request current online users to resolve race condition
+      socket.emit('check_online', (usersList: string[]) => {
+        setIsPeerOnline(usersList.includes(recipientId));
+      });
 
       // Listen to presence updates to check if recipient is online
       socket.on('online_users_list', (usersList: string[]) => {
@@ -98,17 +344,31 @@ export const ChatScreen: React.FC = () => {
           setIsPeerOnline(status === 'online');
         }
       });
+
+      return () => {
+        socket.off('online_users_list');
+        socket.off('presence_status');
+      };
     }
-  }, [chatId, recipientId]);
+  }, [socket, chatId, recipientId]);
 
   // Setup Socket Listeners
   useEffect(() => {
-    const socket = getSocket();
     if (!socket) return;
 
     const handleReceiveMessage = (data: { chatId: string; message: any }) => {
       if (data.chatId === chatId) {
-        setMessages((prev) => [data.message, ...prev]);
+        const decryptedMessage = {
+          ...data.message,
+          text: decryptMessage(data.message.text, chatId),
+        };
+        setMessages((prev) => {
+          // Prevent duplicate message keys in real-time
+          if (prev.some((m) => m.id === decryptedMessage.id)) {
+            return prev;
+          }
+          return [decryptedMessage, ...prev];
+        });
         // Send read receipt if we are currently looking at this chat
         socket.emit('read_receipt', { chatId, senderId: recipientId });
       }
@@ -128,23 +388,49 @@ export const ChatScreen: React.FC = () => {
       }
     };
 
+    const handleReactionUpdated = (data: { chatId: string; messageId: string; reactions: any[] }) => {
+      if (data.chatId === chatId) {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === data.messageId ? { ...m, reactions: data.reactions } : m))
+        );
+      }
+    };
+
+    const handleMessageDeleted = (data: { chatId: string; messageId: string }) => {
+      if (data.chatId === chatId) {
+        setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+      }
+    };
+
+    const handleChatCleared = (data: { chatId: string }) => {
+      if (data.chatId === chatId) {
+        setMessages([]);
+      }
+    };
+
     socket.on('receive_message', handleReceiveMessage);
     socket.on('typing_status', handleTypingStatus);
     socket.on('messages_read_sync', handleReadSync);
+    socket.on('message_reaction_updated', handleReactionUpdated);
+    socket.on('message_deleted', handleMessageDeleted);
+    socket.on('chat_cleared', handleChatCleared);
 
     return () => {
       socket.off('receive_message', handleReceiveMessage);
       socket.off('typing_status', handleTypingStatus);
       socket.off('messages_read_sync', handleReadSync);
+      socket.off('message_reaction_updated', handleReactionUpdated);
+      socket.off('message_deleted', handleMessageDeleted);
+      socket.off('chat_cleared', handleChatCleared);
     };
-  }, [chatId, recipientId]);
+  }, [socket, chatId, recipientId]);
 
   const handleSend = () => {
     if (inputText.trim() === '') return;
 
     const socket = getSocket();
-    if (!socket) {
-      Alert.alert('Error', 'Connection offline. Try again later.');
+    if (!socket || !isSocketConnected) {
+      Alert.alert('Offline', 'Connection offline. Please wait for connection to restore.');
       return;
     }
 
@@ -155,12 +441,14 @@ export const ChatScreen: React.FC = () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
 
+    const encryptedText = encryptMessage(inputText.trim(), chatId);
+
     socket.emit(
       'send_message',
       {
         chatId,
         recipientId,
-        text: inputText.trim(),
+        text: encryptedText,
       },
       (res: any) => {
         if (res && res.status === 'error') {
@@ -205,12 +493,87 @@ export const ChatScreen: React.FC = () => {
         return null;
     }
   };
-
+  const renderImageStatusIcon = (status: Message['status']) => {
+    switch (status) {
+      case 'sent':
+        return <Ionicons name="checkmark" size={12} color="rgba(255, 255, 255, 0.6)" />;
+      case 'delivered':
+        return <Ionicons name="checkmark-done" size={12} color="rgba(255, 255, 255, 0.6)" />;
+      case 'read':
+        return <Ionicons name="checkmark-done" size={12} color="#C5A880" />;
+      default:
+        return null;
+    }
+  };
   const renderItem = ({ item }: { item: Message }) => {
     const isMe = item.sender === 'me';
+    const reactions = item.reactions || [];
+    const reactionCounts = reactions.reduce((acc: Record<string, number>, r) => {
+      acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+      return acc;
+    }, {});
+    const uniqueEmojis = Object.keys(reactionCounts);
+
+    const isImage = item.text.startsWith('[IMAGE]:');
+    const isFile = item.text.startsWith('[FILE]:');
+
+    let imageUrl = '';
+    if (isImage) {
+      imageUrl = item.text.slice(8);
+    }
+
+    let fileUrl = '';
+    let fileName = '';
+    if (isFile) {
+      const parts = item.text.slice(7).split('|');
+      fileUrl = parts[0];
+      fileName = parts[1] || 'attachment';
+    }
+
+    if (isImage) {
+      return (
+        <View style={[styles.messageRow, { justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: uniqueEmojis.length > 0 ? 12 : 4 }]}>
+          <View style={styles.imageMessageContainer}>
+            <TouchableOpacity
+              onLongPress={() => handleLongPressMessage(item.id)}
+              onPress={() => setSelectedFullImage(imageUrl)}
+              activeOpacity={0.9}
+            >
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.messageImage}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+
+            <View style={styles.imageTimestampBadge}>
+              <Text style={styles.imageTimestampText}>
+                {formatMsgTime(item.timestamp)}
+              </Text>
+              {isMe && <View style={styles.imageStatusIcon}>{renderImageStatusIcon(item.status)}</View>}
+            </View>
+
+            {uniqueEmojis.length > 0 && (
+              <View style={[
+                styles.reactionBadge,
+                isMe ? styles.reactionBadgeMe : styles.reactionBadgeOther,
+                { bottom: -10 }
+              ]}>
+                <Text style={styles.reactionBadgeText}>
+                  {uniqueEmojis.join('')} {reactions.length > 1 ? reactions.length : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={[styles.messageRow, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
-        <View
+        <TouchableOpacity
+          onLongPress={() => handleLongPressMessage(item.id)}
+          activeOpacity={0.9}
           style={[
             styles.bubble,
             {
@@ -220,19 +583,59 @@ export const ChatScreen: React.FC = () => {
               borderTopRightRadius: isMe ? 4 : 18,
               borderTopLeftRadius: isMe ? 18 : 4,
               borderRadius: 18,
+              marginBottom: uniqueEmojis.length > 0 ? 12 : 4,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
             },
           ]}
         >
-          <Text style={[styles.messageText, { color: isMe ? '#000000' : '#FFFFFF' }]}>
-            {item.text}
-          </Text>
+          {isFile ? (
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert('Download File', `Do you want to download or open: ${fileName}?`, [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Open', onPress: () => {
+                    const { Linking } = require('react-native');
+                    Linking.openURL(fileUrl);
+                  }}
+                ]);
+              }}
+              style={styles.fileContainer}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="document-text" size={32} color={isMe ? '#000000' : '#FFFFFF'} />
+              <View style={styles.fileInfo}>
+                <Text style={[styles.fileNameText, { color: isMe ? '#000000' : '#FFFFFF' }]} numberOfLines={1}>
+                  {fileName}
+                </Text>
+                <Text style={[styles.fileDownloadText, { color: isMe ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' }]}>
+                  Tap to Open
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <Text style={[styles.messageText, { color: isMe ? '#000000' : '#FFFFFF' }]}>
+              {item.text}
+            </Text>
+          )}
           <View style={styles.bubbleMeta}>
             <Text style={[styles.timestamp, { color: isMe ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)' }]}>
               {formatMsgTime(item.timestamp)}
             </Text>
             {isMe && <View style={styles.statusWrapper}>{renderStatusIcon(item.status)}</View>}
           </View>
-        </View>
+
+          {uniqueEmojis.length > 0 && (
+            <View style={[
+              styles.reactionBadge,
+              isMe ? styles.reactionBadgeMe : styles.reactionBadgeOther
+            ]}>
+              <Text style={styles.reactionBadgeText}>
+                {uniqueEmojis.join('')} {reactions.length > 1 ? reactions.length : ''}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
     );
   };
@@ -263,8 +666,8 @@ export const ChatScreen: React.FC = () => {
               <Text style={[styles.headerName, { color: '#FFFFFF' }]} numberOfLines={1}>
                 {name}
               </Text>
-              <Text style={[styles.headerStatus, { color: isPeerTyping ? '#C5A880' : colors.textSecondary }]}>
-                {isPeerTyping ? 'typing...' : isPeerOnline ? 'online' : 'offline'}
+              <Text style={[styles.headerStatus, { color: !isSocketConnected ? '#FF3B30' : isPeerTyping ? '#C5A880' : isPeerOnline ? '#4CD964' : colors.textSecondary }]}>
+                {!isSocketConnected ? 'connecting...' : isPeerTyping ? 'typing...' : isPeerOnline ? 'online' : 'offline'}
               </Text>
             </View>
           </View>
@@ -275,13 +678,20 @@ export const ChatScreen: React.FC = () => {
             <TouchableOpacity style={styles.headerActionIcon}>
               <Ionicons name="call-outline" size={22} color="#FFFFFF" />
             </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={handleHeaderMenuPress} 
+              style={styles.headerActionIcon}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="ellipsis-vertical" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* Message List */}
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 60}
           style={styles.keyboardView}
         >
           {isLoading ? (
@@ -306,11 +716,29 @@ export const ChatScreen: React.FC = () => {
               borderColor: 'rgba(255, 255, 255, 0.06)',
             }
           ]}>
-            <TouchableOpacity style={styles.attachButton}>
+            <TouchableOpacity 
+              onPress={() => setShowAttachmentMenu(true)}
+              style={styles.attachButton}
+              activeOpacity={0.7}
+            >
               <Ionicons name="add" size={26} color="#FFFFFF" />
             </TouchableOpacity>
 
+            <TouchableOpacity 
+              onPress={toggleEmojiPicker} 
+              style={{ padding: 6, marginRight: 8 }}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name={showEmojiPicker ? "keypad-outline" : "happy-outline"} 
+                size={24} 
+                color="#FFFFFF" 
+              />
+            </TouchableOpacity>
+
             <TextInput
+              ref={inputRef}
+              onFocus={() => setShowEmojiPicker(false)}
               style={[
                 styles.input,
                 {
@@ -346,6 +774,221 @@ export const ChatScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+
+        {showEmojiPicker && (
+          <View style={[styles.emojiPickerContainer, { backgroundColor: '#121215', borderTopColor: 'rgba(255,255,255,0.06)', borderTopWidth: 1 }]}>
+            <FlatList
+              data={POPULAR_EMOJIS}
+              keyExtractor={(item) => item}
+              numColumns={8}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  onPress={() => setInputText((prev) => prev + item)}
+                  style={styles.emojiItem}
+                  activeOpacity={0.6}
+                >
+                  <Text style={styles.emojiText}>{item}</Text>
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={styles.emojiPickerContent}
+            />
+          </View>
+        )}
+
+        <Modal
+          visible={selectedMessageId !== null}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSelectedMessageId(null)}
+        >
+          <TouchableWithoutFeedback onPress={() => setSelectedMessageId(null)}>
+            <View style={styles.reactionOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.messageActionsContainer, { backgroundColor: '#1C1C24' }]}>
+                  {/* Reactions List */}
+                  <View style={styles.reactionBubbleContainer}>
+                    {REACTION_EMOJIS.map((emoji) => (
+                      <TouchableOpacity
+                        key={emoji}
+                        onPress={() => {
+                          if (selectedMessageId) {
+                            handleReactMessage(selectedMessageId, emoji);
+                          }
+                        }}
+                        style={styles.reactionBubbleBtn}
+                        activeOpacity={0.6}
+                      >
+                        <Text style={styles.reactionBubbleEmoji}>{emoji}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <View style={styles.actionDivider} />
+
+                  {/* Actions List */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedMessageId) {
+                        const msg = messages.find(m => m.id === selectedMessageId);
+                        if (msg) {
+                          const { Clipboard } = require('react-native');
+                          let textToCopy = msg.text;
+                          if (textToCopy.startsWith('[IMAGE]:')) {
+                            textToCopy = textToCopy.slice(8);
+                          } else if (textToCopy.startsWith('[FILE]:')) {
+                            textToCopy = textToCopy.slice(7).split('|')[0];
+                          }
+                          Clipboard.setString(textToCopy);
+                          Alert.alert('Copied', 'Message text copied to clipboard!');
+                        }
+                      }
+                      setSelectedMessageId(null);
+                    }}
+                    style={styles.actionItem}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="copy-outline" size={20} color="#FFFFFF" style={{ marginRight: 12 }} />
+                    <Text style={styles.actionItemText}>Copy Message</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (selectedMessageId) {
+                        Alert.alert(
+                          'Delete Message',
+                          'Are you sure you want to delete this message? This cannot be undone.',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                              text: 'Delete',
+                              style: 'destructive',
+                              onPress: async () => {
+                                try {
+                                  const res = await deleteMessageApi(selectedMessageId);
+                                  if (res && res.status === 'success') {
+                                    setMessages((prev) => prev.filter((m) => m.id !== selectedMessageId));
+                                    if (socket) {
+                                      socket.emit('delete_message_sync', { chatId, messageId: selectedMessageId });
+                                    }
+                                  } else {
+                                    Alert.alert('Error', 'Failed to delete message.');
+                                  }
+                                } catch (err) {
+                                  console.error('Delete message error:', err);
+                                }
+                              }
+                            }
+                          ]
+                        );
+                      }
+                      setSelectedMessageId(null);
+                    }}
+                    style={styles.actionItem}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#FF3B30" style={{ marginRight: 12 }} />
+                    <Text style={[styles.actionItemText, { color: '#FF3B30', fontWeight: '600' }]}>Delete Message</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        <Modal
+          visible={showAttachmentMenu}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowAttachmentMenu(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowAttachmentMenu(false)}>
+            <View style={styles.attachmentOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.attachmentContainer, { backgroundColor: '#1C1C24' }]}>
+                  <Text style={styles.attachmentTitle}>Send Attachment</Text>
+
+                  <TouchableOpacity 
+                    onPress={handlePickImage} 
+                    style={styles.attachmentItem}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.attachmentIconWrapper, { backgroundColor: '#C5A880' }]}>
+                      <Ionicons name="image-outline" size={24} color="#000000" />
+                    </View>
+                    <Text style={styles.attachmentText}>Photo Library</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={handleTakePhoto} 
+                    style={styles.attachmentItem}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.attachmentIconWrapper, { backgroundColor: '#007AFF' }]}>
+                      <Ionicons name="camera-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.attachmentText}>Take Photo</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={handlePickDocument} 
+                    style={styles.attachmentItem}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.attachmentIconWrapper, { backgroundColor: '#34C759' }]}>
+                      <Ionicons name="document-text-outline" size={24} color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.attachmentText}>Document / File</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    onPress={() => setShowAttachmentMenu(false)} 
+                    style={[styles.attachmentItem, { borderBottomWidth: 0, marginTop: 10 }]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.attachmentText, { color: '#FF3B30', width: '100%', textAlign: 'center', fontWeight: '700' }]}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        {isUploading && (
+          <View style={styles.uploadingOverlay}>
+            <View style={styles.uploadingCard}>
+              <ActivityIndicator size="large" color="#FFFFFF" style={{ marginBottom: 12 }} />
+              <Text style={styles.uploadingText}>Encrypting & Uploading...</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Full-Screen Image Lightbox */}
+        <Modal
+          visible={selectedFullImage !== null}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setSelectedFullImage(null)}
+        >
+          <View style={styles.lightboxContainer}>
+            <TouchableOpacity 
+              style={styles.lightboxCloseBtn}
+              onPress={() => setSelectedFullImage(null)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={32} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {selectedFullImage && (
+              <Image
+                source={{ uri: selectedFullImage }}
+                style={styles.lightboxImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </Modal>
       </SafeAreaView>
     </View>
   );
@@ -485,5 +1128,244 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 4,
+  },
+  reactionBadge: {
+    position: 'absolute',
+    bottom: -10,
+    backgroundColor: '#1E1E24',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  reactionBadgeMe: {
+    right: 12,
+  },
+  reactionBadgeOther: {
+    left: 12,
+  },
+  reactionBadgeText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '600',
+  },
+  emojiPickerContainer: {
+    height: 250,
+    width: '100%',
+  },
+  emojiPickerContent: {
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+  },
+  emojiItem: {
+    flex: 1,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emojiText: {
+    fontSize: 26,
+  },
+  reactionOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reactionBubbleContainer: {
+    flexDirection: 'row',
+    borderRadius: 30,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  reactionBubbleBtn: {
+    paddingHorizontal: 10,
+  },
+  reactionBubbleEmoji: {
+    fontSize: 28,
+  },
+  messageImage: {
+    width: 240,
+    height: 240,
+    borderRadius: 16,
+    backgroundColor: '#0F0F14',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 4,
+  },
+  fileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    maxWidth: 240,
+  },
+  fileInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  fileNameText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  fileDownloadText: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  attachmentOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  attachmentContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  attachmentTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  attachmentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  attachmentIconWrapper: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  attachmentText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+  },
+  uploadingCard: {
+    backgroundColor: '#1C1C24',
+    padding: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  uploadingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginTop: 10,
+  },
+  messageActionsContainer: {
+    borderRadius: 16,
+    padding: 16,
+    width: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  actionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 12,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  actionItemText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  imageMessageContainer: {
+    marginVertical: 4,
+    position: 'relative',
+  },
+  imageTimestampBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  imageTimestampText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  imageStatusIcon: {
+    marginLeft: 4,
+  },
+  lightboxContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lightboxCloseBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 999,
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 24,
+  },
+  lightboxImage: {
+    width: '100%',
+    height: '80%',
   },
 });

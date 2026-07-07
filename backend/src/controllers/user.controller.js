@@ -52,3 +52,20 @@ export const updateProfile = async (req, res) => {
     return res.status(500).json({ status: 'error', message: 'Failed to update profile' });
   }
 };
+
+/**
+ * Fetch a user profile by ID.
+ */
+export const getUserProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId).select('name phone email location profileImage status');
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+    return res.json({ status: 'success', user });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    return res.status(500).json({ status: 'error', message: 'Failed to fetch user profile' });
+  }
+};
