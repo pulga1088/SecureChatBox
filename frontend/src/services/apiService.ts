@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import { getSession } from './firebaseAuth';
 import { File as ExpoFile, UploadType } from 'expo-file-system';
 
-export const BACKEND_URL = 'http://localhost:5001';
+export const BACKEND_URL = 'https://securechatbox.onrender.com';
 
 /**
  * Generic API fetch wrapper that automatically appends the backend JWT auth token.
