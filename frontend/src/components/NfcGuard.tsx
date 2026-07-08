@@ -65,6 +65,12 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
     loadSessionDetails();
   }, [activeRoute, isNfcUnlocked]);
 
+  useEffect(() => {
+    NfcManager.start().catch((err) => {
+      console.warn('NfcManager start error in NfcGuard:', err);
+    });
+  }, []);
+
   // Pulse animation for the scanning visualizer
   const startPulseAnimation = () => {
     Animated.loop(
@@ -217,6 +223,29 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
 
     return () => {
       NfcManager.cancelTechnologyRequest().catch(() => {});
+    };
+  }, [activeRoute, isNfcUnlocked, sessionUser]);
+
+  // AppState Listener to handle resuming from background
+  useEffect(() => {
+    const handleAppState = async (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active') {
+        const needsGuard = !(activeRoute === 'Splash' || activeRoute === 'Login' || activeRoute === 'OTP');
+        if (needsGuard && !isNfcUnlocked && sessionUser) {
+          console.log('[NfcGuard] App resumed. Re-initializing NFC scanning...');
+          // Clean up old dead session first
+          await NfcManager.cancelTechnologyRequest().catch(() => {});
+          isScanningActive.current = false;
+          hasUnlocked.current = false;
+          // Start fresh scan
+          startNfcScanning();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppState);
+    return () => {
+      subscription.remove();
     };
   }, [activeRoute, isNfcUnlocked, sessionUser]);
 
