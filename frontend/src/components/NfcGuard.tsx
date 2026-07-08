@@ -41,6 +41,7 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
 
   // NFC scanning flag to prevent concurrent requests
   const isScanningActive = useRef(false);
+  const hasUnlocked = useRef(false);
 
   // Load session from AsyncStorage
   const loadSessionDetails = async () => {
@@ -115,8 +116,8 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
         return;
       }
 
-      // 2. Request technology (supports standard ISO 14443-A tags via MifareClassic/NfcA)
-      await NfcManager.requestTechnology([NfcTech.MifareClassic, NfcTech.NfcA]);
+      // 2. Request technology (supports standard ISO 14443-A tags via NfcA)
+      await NfcManager.requestTechnology(NfcTech.NfcA);
       
       // 3. Read tag unique hardware ID (UID)
       const tag = await NfcManager.getTag();
@@ -145,6 +146,7 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
         }
 
         // Successfully verified
+        hasUnlocked.current = true;
         unlockNfcSession();
       } else {
         // --- Registration Flow ---
@@ -175,6 +177,7 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
         }
 
         Alert.alert('Key Registered', 'This NFC card is now linked to your secure chat account!');
+        hasUnlocked.current = true;
         unlockNfcSession();
       }
     } catch (err: any) {
@@ -192,10 +195,10 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
       
       // Auto-restart scanning loop if still locked and route requires guard
       const needsGuard = !(activeRoute === 'Splash' || activeRoute === 'Login' || activeRoute === 'OTP');
-      if (needsGuard && !isNfcUnlocked) {
+      if (needsGuard && !isNfcUnlocked && !hasUnlocked.current) {
         setTimeout(() => {
           startNfcScanning();
-        }, 1500);
+        }, 2500);
       }
     }
   };
@@ -204,6 +207,7 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
   useEffect(() => {
     const needsGuard = !(activeRoute === 'Splash' || activeRoute === 'Login' || activeRoute === 'OTP');
     if (needsGuard && !isNfcUnlocked && sessionUser) {
+      hasUnlocked.current = false;
       startNfcScanning();
     } else {
       NfcManager.cancelTechnologyRequest().catch(() => {});
