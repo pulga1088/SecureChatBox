@@ -28,7 +28,7 @@ interface NfcGuardProps {
 
 export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => {
   const { colors } = useTheme();
-  const { isNfcUnlocked, unlockNfcSession } = useNfcAuth();
+  const { isNfcUnlocked, unlockNfcSession, lockNfcSession } = useNfcAuth();
   
   const [sessionUser, setSessionUser] = useState<any>(null);
   const [backendToken, setBackendToken] = useState<string | null>(null);
@@ -259,6 +259,7 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
             await clearSession();
             setSessionUser(null);
             setBackendToken(null);
+            lockNfcSession();
           },
         },
       ]

@@ -18,12 +18,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNfcAuth } from '../context/NfcAuthContext';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Profile'>;
 type ProfileRouteProp = RouteProp<RootStackParamList, 'Profile'>;
 
 export const ProfileScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
+  const { lockNfcSession } = useNfcAuth();
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ProfileRouteProp>();
   const peerUserId = route.params?.userId;
@@ -149,6 +151,7 @@ export const ProfileScreen: React.FC = () => {
               const { disconnectSocket } = require('../services/socketService');
               await clearSession();
               disconnectSocket();
+              lockNfcSession();
               navigation.reset({
                 index: 0,
                 routes: [{ name: 'Login' }],
