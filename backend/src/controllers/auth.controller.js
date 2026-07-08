@@ -142,6 +142,7 @@ export const verifyFirebaseToken = async (req, res) => {
         location: user.location,
         profileImage: user.profileImage,
         status: user.status,
+        nfcRegistered: !!user.nfcUid,
       },
     });
   } catch (error) {
@@ -167,6 +168,119 @@ export const getProfile = async (req, res) => {
       location: req.user.location,
       profileImage: req.user.profileImage,
       status: req.user.status,
+      nfcRegistered: !!req.user.nfcUid,
     },
   });
+};
+
+/**
+ * Registers a unique NFC card UID to the logged-in user account.
+ */
+export const registerNfcCard = async (req, res) => {
+  const { nfcUid } = req.body;
+
+  if (!nfcUid || typeof nfcUid !== 'string' || !nfcUid.trim()) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'nfcUid is required and must be a valid string',
+    });
+  }
+
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found',
+      });
+    }
+
+    if (user.nfcUid) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'An NFC card is already registered to this account',
+      });
+    }
+
+    // Check if another user already registered this card
+    const existingCardUser = await User.findOne({ nfcUid: nfcUid.trim() });
+    if (existingCardUser) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'This NFC card is already registered to another account',
+      });
+    }
+
+    user.nfcUid = nfcUid.trim();
+    await user.save();
+
+    return res.json({
+      status: 'success',
+      message: 'NFC card registered successfully',
+      user: {
+        id: user._id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        nfcRegistered: true,
+      },
+    });
+  } catch (error) {
+    console.error('NFC registration error:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Server error registering NFC card',
+    });
+  }
+};
+
+/**
+ * Verifies that the scanned NFC card matches the one registered to the user account.
+ */
+export const verifyNfcCard = async (req, res) => {
+  const { nfcUid } = req.body;
+
+  if (!nfcUid || typeof nfcUid !== 'string' || !nfcUid.trim()) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'nfcUid is required and must be a valid string',
+    });
+  }
+
+  try {
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found',
+      });
+    }
+
+    if (!user.nfcUid) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No NFC card is registered to this account',
+      });
+    }
+
+    if (user.nfcUid !== nfcUid.trim()) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'NFC Card verification failed (UID mismatch)',
+      });
+    }
+
+    return res.json({
+      status: 'success',
+      message: 'NFC Card verified successfully',
+    });
+  } catch (error) {
+    console.error('NFC verification error:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Server error verifying NFC card',
+    });
+  }
 };

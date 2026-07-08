@@ -31,6 +31,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  nfcUid: {
+    type: String,
+    sparse: true,
+    unique: true,
+    trim: true,
+  },
 }, {
   timestamps: true,
 });

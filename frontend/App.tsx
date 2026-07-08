@@ -9,6 +9,8 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { getSocket } from './src/services/socketService';
 import { decryptMessage } from './src/services/encryptionService';
+import { NfcAuthProvider } from './src/context/NfcAuthContext';
+import { NfcGuard } from './src/components/NfcGuard';
 
 const navigationRef = createNavigationContainerRef();
 
@@ -23,6 +25,8 @@ const AppContent: React.FC = () => {
     senderId: string;
   } | null>(null);
 
+  const [activeRoute, setActiveRoute] = useState<string>('Splash');
+
   const slideAnim = useRef(new Animated.Value(-120)).current;
   const bannerTimeoutRef = useRef<any>(null);
   const activeChatIdRef = useRef<string | null>(null);
@@ -30,6 +34,7 @@ const AppContent: React.FC = () => {
   const handleStateChange = () => {
     if (navigationRef.isReady()) {
       const currentRoute = navigationRef.getCurrentRoute() as any;
+      setActiveRoute(currentRoute?.name || 'Splash');
       if (currentRoute?.name === 'Chat') {
         const params = currentRoute.params as any;
         activeChatIdRef.current = params?.chatId || null;
@@ -126,7 +131,9 @@ const AppContent: React.FC = () => {
   return (
     <NavigationContainer ref={navigationRef} onStateChange={handleStateChange}>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
-      <AppNavigator />
+      <NfcGuard activeRoute={activeRoute}>
+        <AppNavigator />
+      </NfcGuard>
 
       {/* Global In-App Banner */}
       {bannerVisible && bannerData && (
@@ -170,7 +177,9 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <AppContent />
+        <NfcAuthProvider>
+          <AppContent />
+        </NfcAuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

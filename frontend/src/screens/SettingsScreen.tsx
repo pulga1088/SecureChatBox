@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,10 @@ import {
   TouchableOpacity,
   ScrollView,
   Platform,
+  Alert,
 } from 'react-native';
+import { useNfcAuth } from '../context/NfcAuthContext';
+import { getSession } from '../services/firebaseAuth';
 import { useTheme } from '../theme/ThemeContext';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,8 +21,20 @@ export const SettingsScreen: React.FC = () => {
   const { mode, colors, toggleTheme, isDark } = useTheme();
   const navigation = useNavigation();
 
+  const { lockNfcSession } = useNfcAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [readReceiptsEnabled, setReadReceiptsEnabled] = useState(true);
+  const [nfcRegistered, setNfcRegistered] = useState(false);
+
+  useEffect(() => {
+    const loadNfcStatus = async () => {
+      const session = await getSession();
+      if (session?.user) {
+        setNfcRegistered(!!session.user.nfcRegistered);
+      }
+    };
+    loadNfcStatus();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -130,6 +145,52 @@ export const SettingsScreen: React.FC = () => {
                   <Ionicons name="radio" size={18} color={colors.accent} />
                 </View>
                 <Text style={[styles.rowText, { color: colors.text }]}>NFC Key Exchange</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Security Section */}
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SECURITY</Text>
+          <View style={[
+            styles.card,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            }
+          ]}>
+            {/* Hardware Key Status Row */}
+            <View style={styles.row}>
+              <View style={styles.rowLeft}>
+                <View style={[styles.iconBox, { backgroundColor: colors.accentLight, borderWidth: 1, borderColor: colors.accent }]}>
+                  <Ionicons name="key" size={18} color={colors.accent} />
+                </View>
+                <Text style={[styles.rowText, { color: colors.text }]}>Hardware Security Key</Text>
+              </View>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: nfcRegistered ? colors.accent : colors.textSecondary }}>
+                {nfcRegistered ? 'Registered' : 'Not Registered'}
+              </Text>
+            </View>
+
+            {/* Manual Lock Row */}
+            <TouchableOpacity
+              onPress={() => {
+                lockNfcSession();
+                Alert.alert('App Locked', 'Your secure session has been terminated. Please scan your card to enter.');
+              }}
+              style={[
+                styles.row,
+                {
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: colors.border,
+                }
+              ]}
+            >
+              <View style={styles.rowLeft}>
+                <View style={[styles.iconBox, { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border }]}>
+                  <Ionicons name="lock-closed" size={18} color={colors.icon} />
+                </View>
+                <Text style={[styles.rowText, { color: colors.text }]}>Lock Secure Session</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
             </TouchableOpacity>
