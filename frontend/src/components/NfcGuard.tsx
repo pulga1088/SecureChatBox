@@ -10,6 +10,8 @@ import {
   Easing,
   SafeAreaView,
   Platform,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
