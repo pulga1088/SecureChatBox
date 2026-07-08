@@ -127,7 +127,7 @@ export const OTPScreen: React.FC = () => {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
         <LinearGradient
-          colors={['#030303', '#0A0A0C', '#121215']}
+          colors={colors.gradient as any}
           style={StyleSheet.absoluteFill}
         />
         <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }}>
@@ -139,16 +139,16 @@ export const OTPScreen: React.FC = () => {
               <View style={styles.header}>
                 <TouchableOpacity
                   onPress={() => navigation.goBack()}
-                  style={[styles.backButton, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.06)' }]}
+                  style={[styles.backButton, { backgroundColor: colors.input, borderColor: colors.border }]}
                 >
-                  <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                  <Ionicons name="arrow-back" size={20} color={colors.icon} />
                 </TouchableOpacity>
 
-                <Text style={[styles.title, { color: '#FFFFFF' }]}>Verify Phone</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Verify Phone</Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                   We've sent a 6-digit verification code to
                 </Text>
-                <Text style={[styles.phoneNumber, { color: '#C5A880' }]}>{phoneNumber}</Text>
+                <Text style={[styles.phoneNumber, { color: colors.accent }]}>{phoneNumber}</Text>
               </View>
 
               <View style={styles.otpSection}>
@@ -160,9 +160,9 @@ export const OTPScreen: React.FC = () => {
                       style={[
                         styles.otpBox,
                         {
-                          backgroundColor: '#121214',
-                          borderColor: digit ? '#C5A880' : 'rgba(255,255,255,0.08)',
-                          color: '#FFFFFF',
+                          backgroundColor: colors.input,
+                          borderColor: digit ? colors.accent : colors.border,
+                          color: colors.text,
                         },
                       ]}
                       keyboardType="number-pad"
@@ -179,11 +179,11 @@ export const OTPScreen: React.FC = () => {
                 <View style={styles.timerRow}>
                   {timer > 0 ? (
                     <Text style={[styles.timerText, { color: colors.textSecondary }]}>
-                      Resend code in <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>0:{timer < 10 ? `0${timer}` : timer}</Text>
+                      Resend code in <Text style={{ color: colors.text, fontWeight: '700' }}>0:{timer < 10 ? `0${timer}` : timer}</Text>
                     </Text>
                   ) : (
                     <TouchableOpacity onPress={handleResend} activeOpacity={0.7}>
-                      <Text style={[styles.resendText, { color: '#C5A880' }]}>Resend Verification Code</Text>
+                      <Text style={[styles.resendText, { color: colors.accent }]}>Resend Verification Code</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -194,7 +194,7 @@ export const OTPScreen: React.FC = () => {
                   style={[
                     styles.button,
                     {
-                      backgroundColor: otp.join('').length === 6 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.08)',
+                      backgroundColor: otp.join('').length === 6 ? colors.accent : colors.border,
                     },
                   ]}
                   disabled={otp.join('').length < 6 || isVerifying}
@@ -202,14 +202,14 @@ export const OTPScreen: React.FC = () => {
                   activeOpacity={0.8}
                 >
                   {isVerifying ? (
-                    <ActivityIndicator size="small" color="#000000" />
+                    <ActivityIndicator size="small" color={colors.bubbleSentText} />
                   ) : (
                     <>
-                      <Text style={[styles.buttonText, { color: otp.join('').length === 6 ? '#000000' : 'rgba(255,255,255,0.3)' }]}>Verify</Text>
+                      <Text style={[styles.buttonText, { color: otp.join('').length === 6 ? colors.bubbleSentText : colors.placeholder }]}>Verify</Text>
                       <Ionicons
                         name="checkmark-circle"
                         size={18}
-                        color={otp.join('').length === 6 ? '#000000' : 'rgba(255, 255, 255, 0.3)'}
+                        color={otp.join('').length === 6 ? colors.bubbleSentText : colors.placeholder}
                         style={styles.buttonIcon}
                       />
                     </>

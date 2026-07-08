@@ -10,6 +10,7 @@ import { ChatScreen } from '../screens/ChatScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { NewChatScreen } from '../screens/NewChatScreen';
+import { NFCShareScreen } from '../screens/NFCShareScreen';
 import { useTheme } from '../theme/ThemeContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -73,6 +74,11 @@ export const AppNavigator: React.FC = () => {
         name="NewChat"
         component={NewChatScreen}
         options={{ title: 'New Chat' }}
+      />
+      <Stack.Screen
+        name="NFCShare"
+        component={NFCShareScreen}
+        options={{ title: 'NFC Contact Exchange' }}
       />
     </Stack.Navigator>
   );

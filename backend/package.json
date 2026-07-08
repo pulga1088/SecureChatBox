@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "simulate": "node src/simulator.js"
+    "simulate": "node src/simulator.js",
+    "test-security": "node src/security_verify.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

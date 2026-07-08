@@ -17,7 +17,7 @@ export const connectSocket = (token: string): Socket => {
 
   socket = io(BACKEND_URL, {
     auth: { token },
-    transports: ['websocket'],
+    transports: ['polling', 'websocket'],
     autoConnect: true,
     extraHeaders: {
       'Bypass-Tunnel-Reminder': 'true',

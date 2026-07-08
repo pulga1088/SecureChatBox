@@ -108,21 +108,21 @@ export const NewChatScreen: React.FC = () => {
         style={[
           styles.userItem,
           {
-            backgroundColor: 'rgba(20, 20, 24, 0.55)',
-            borderColor: 'rgba(255, 255, 255, 0.05)',
+            backgroundColor: colors.card,
+            borderColor: colors.border,
           }
         ]}
         onPress={() => handleSelectUser(item)}
         activeOpacity={0.7}
       >
         {/* Avatar */}
-        <View style={[styles.avatar, { backgroundColor: '#222226', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }]}>
+        <View style={[styles.avatar, { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border }]}>
           <Text style={styles.avatarText}>{avatarText}</Text>
         </View>
 
         {/* Info */}
         <View style={styles.userInfo}>
-          <Text style={[styles.userName, { color: '#FFFFFF' }]} numberOfLines={1}>
+          <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>
             {item.name}
           </Text>
           <Text style={[styles.userStatus, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -136,7 +136,7 @@ export const NewChatScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#030303', '#0A0A0C', '#121215']}
+        colors={colors.gradient as any}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
@@ -145,13 +145,13 @@ export const NewChatScreen: React.FC = () => {
           <View style={[
             styles.searchBar,
             {
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
-              borderColor: 'rgba(255, 255, 255, 0.06)',
+              backgroundColor: colors.input,
+              borderColor: colors.border,
             }
           ]}>
             <Ionicons name="search" size={16} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
-              style={[styles.searchInput, { color: '#FFFFFF' }]}
+              style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search by name, phone or email..."
               placeholderTextColor={colors.placeholder}
               value={searchQuery}
@@ -165,6 +165,21 @@ export const NewChatScreen: React.FC = () => {
             )}
           </View>
         </View>
+
+        {/* NFC Action Button */}
+        <TouchableOpacity
+          style={[
+            styles.nfcBtn,
+            {
+              backgroundColor: colors.accentLight,
+              borderColor: colors.accentBorder,
+            }
+          ]}
+          onPress={() => navigation.navigate('NFCShare')}
+        >
+          <Ionicons name="radio" size={18} color={colors.accent} style={{ marginRight: 8 }} />
+          <Text style={[styles.nfcBtnText, { color: colors.accent }]}>Start Secure Chat via NFC</Text>
+        </TouchableOpacity>
 
         {/* Main List */}
         {isSearching ? (
@@ -285,5 +300,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontWeight: '500',
+  },
+  nfcBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  nfcBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

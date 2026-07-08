@@ -7,4 +7,5 @@ export type RootStackParamList = {
   NewChat: undefined;
   Profile: { userId?: string; name?: string } | undefined;
   Settings: undefined;
+  NFCShare: undefined;
 };

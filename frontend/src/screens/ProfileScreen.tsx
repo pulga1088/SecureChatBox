@@ -176,12 +176,12 @@ export const ProfileScreen: React.FC = () => {
     return (
       <View style={styles.container}>
         <LinearGradient
-          colors={['#030303', '#0A0A0C', '#121215']}
+          colors={colors.gradient as any}
           style={StyleSheet.absoluteFill}
         />
         <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['bottom']}>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         </SafeAreaView>
       </View>
@@ -191,7 +191,7 @@ export const ProfileScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#030303', '#0A0A0C', '#121215']}
+        colors={colors.gradient as any}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
@@ -199,14 +199,14 @@ export const ProfileScreen: React.FC = () => {
         <View style={[
           styles.header,
           {
-            backgroundColor: 'rgba(18, 18, 20, 0.65)',
-            borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+            backgroundColor: colors.headerBackground,
+            borderBottomColor: colors.border,
           }
         ]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={24} color={colors.icon} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
             {isOwnProfile ? 'Profile' : 'Friend Profile'}
           </Text>
           {isOwnProfile ? (
@@ -217,7 +217,7 @@ export const ProfileScreen: React.FC = () => {
                 onPress={isEditing ? handleSave : () => setIsEditing(true)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.headerAction, { color: '#C5A880' }]}>
+                <Text style={[styles.headerAction, { color: colors.accent }]}>
                   {isEditing ? 'Save' : 'Edit'}
                 </Text>
               </TouchableOpacity>
@@ -234,14 +234,14 @@ export const ProfileScreen: React.FC = () => {
           <View style={styles.content}>
             {/* Avatar Section */}
             <View style={styles.avatarSection}>
-              <View style={[styles.avatar, { backgroundColor: '#222226', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }]}>
-                <Text style={styles.avatarText}>{getInitials(name)}</Text>
+              <View style={[styles.avatar, { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border }]}>
+                <Text style={[styles.avatarText, { color: colors.text }]}>{getInitials(name)}</Text>
                 {isOwnProfile && (
                   <TouchableOpacity style={[
                     styles.editAvatarBtn,
                     {
                       backgroundColor: 'rgba(0, 0, 0, 0.65)',
-                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                      borderColor: colors.border,
                     }
                   ]}>
                     <Ionicons name="camera" size={16} color="#FFFFFF" />
@@ -259,12 +259,12 @@ export const ProfileScreen: React.FC = () => {
                   <View style={[
                     styles.valueBox,
                     {
-                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
                     }
                   ]}>
                     <TextInput
-                      style={[styles.input, { color: '#FFFFFF' }]}
+                      style={[styles.input, { color: colors.text }]}
                       value={name}
                       onChangeText={setName}
                       placeholder="Enter name"
@@ -277,11 +277,11 @@ export const ProfileScreen: React.FC = () => {
                   <View style={[
                     styles.valueBox,
                     {
-                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
                     }
                   ]}>
-                    <Text style={[styles.valueText, { color: '#FFFFFF' }]} numberOfLines={1}>{name}</Text>
+                    <Text style={[styles.valueText, { color: colors.text }]} numberOfLines={1}>{name}</Text>
                   </View>
                 )}
               </View>
@@ -293,12 +293,12 @@ export const ProfileScreen: React.FC = () => {
                   <View style={[
                     styles.valueBox,
                     {
-                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
                     }
                   ]}>
                     <TextInput
-                      style={[styles.input, { color: '#FFFFFF' }]}
+                      style={[styles.input, { color: colors.text }]}
                       value={status}
                       onChangeText={setStatus}
                       placeholder="Enter status"
@@ -311,11 +311,11 @@ export const ProfileScreen: React.FC = () => {
                   <View style={[
                     styles.valueBox,
                     {
-                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
                     }
                   ]}>
-                    <Text style={[styles.valueText, { color: '#FFFFFF' }]} numberOfLines={1}>{status}</Text>
+                    <Text style={[styles.valueText, { color: colors.text }]} numberOfLines={1}>{status}</Text>
                   </View>
                 )}
               </View>
@@ -327,12 +327,12 @@ export const ProfileScreen: React.FC = () => {
                   <View style={[
                     styles.valueBox,
                     {
-                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
                     }
                   ]}>
                     <TextInput
-                      style={[styles.input, { color: '#FFFFFF' }]}
+                      style={[styles.input, { color: colors.text }]}
                       value={location}
                       onChangeText={setLocation}
                       placeholder="Enter location"
@@ -345,11 +345,11 @@ export const ProfileScreen: React.FC = () => {
                   <View style={[
                     styles.valueBox,
                     {
-                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                      borderColor: 'rgba(255, 255, 255, 0.06)',
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
                     }
                   ]}>
-                    <Text style={[styles.valueText, { color: '#FFFFFF' }]} numberOfLines={1}>{location || 'Not specified'}</Text>
+                    <Text style={[styles.valueText, { color: colors.text }]} numberOfLines={1}>{location || 'Not specified'}</Text>
                   </View>
                 )}
               </View>
@@ -361,8 +361,9 @@ export const ProfileScreen: React.FC = () => {
                   <View style={[
                     styles.valueBox,
                     {
-                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                      borderColor: 'rgba(255, 255, 255, 0.03)',
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
+                      opacity: 0.8,
                     }
                   ]}>
                     <Text style={[styles.valueText, { color: colors.textSecondary }]} numberOfLines={1}>{phone}</Text>
@@ -378,8 +379,9 @@ export const ProfileScreen: React.FC = () => {
                   <View style={[
                     styles.valueBox,
                     {
-                      backgroundColor: 'rgba(0, 0, 0, 0.25)',
-                      borderColor: 'rgba(255, 255, 255, 0.03)',
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
+                      opacity: 0.8,
                     }
                   ]}>
                     <Text style={[styles.valueText, { color: colors.textSecondary }]} numberOfLines={1}>{email}</Text>
@@ -398,8 +400,8 @@ export const ProfileScreen: React.FC = () => {
                   style={[
                     styles.logoutBtn,
                     {
-                      backgroundColor: 'rgba(255, 77, 77, 0.05)',
-                      borderColor: 'rgba(255, 77, 77, 0.12)',
+                      backgroundColor: isDark ? 'rgba(255, 77, 77, 0.05)' : 'rgba(255, 77, 77, 0.1)',
+                      borderColor: isDark ? 'rgba(255, 77, 77, 0.12)' : 'rgba(255, 77, 77, 0.2)',
                     }
                   ]}
                   onPress={handleLogout}

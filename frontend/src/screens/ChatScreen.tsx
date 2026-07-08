@@ -569,6 +569,10 @@ export const ChatScreen: React.FC = () => {
       );
     }
 
+    const sentMetaColor = colors.bubbleSentText === '#FFFFFF' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)';
+    const receivedMetaColor = colors.bubbleReceivedText === '#FFFFFF' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)';
+    const metaColor = isMe ? sentMetaColor : receivedMetaColor;
+
     return (
       <View style={[styles.messageRow, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
         <TouchableOpacity
@@ -577,8 +581,8 @@ export const ChatScreen: React.FC = () => {
           style={[
             styles.bubble,
             {
-              backgroundColor: isMe ? '#FFFFFF' : '#16161C',
-              borderColor: isMe ? 'transparent' : 'rgba(255, 255, 255, 0.06)',
+              backgroundColor: isMe ? colors.bubbleSent : colors.bubbleReceived,
+              borderColor: isMe ? 'transparent' : colors.border,
               borderWidth: 1,
               borderTopRightRadius: isMe ? 4 : 18,
               borderTopLeftRadius: isMe ? 18 : 4,
@@ -603,23 +607,23 @@ export const ChatScreen: React.FC = () => {
               style={styles.fileContainer}
               activeOpacity={0.7}
             >
-              <Ionicons name="document-text" size={32} color={isMe ? '#000000' : '#FFFFFF'} />
+              <Ionicons name="document-text" size={32} color={isMe ? colors.bubbleSentText : colors.bubbleReceivedText} />
               <View style={styles.fileInfo}>
-                <Text style={[styles.fileNameText, { color: isMe ? '#000000' : '#FFFFFF' }]} numberOfLines={1}>
+                <Text style={[styles.fileNameText, { color: isMe ? colors.bubbleSentText : colors.bubbleReceivedText }]} numberOfLines={1}>
                   {fileName}
                 </Text>
-                <Text style={[styles.fileDownloadText, { color: isMe ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)' }]}>
+                <Text style={[styles.fileDownloadText, { color: metaColor }]}>
                   Tap to Open
                 </Text>
               </View>
             </TouchableOpacity>
           ) : (
-            <Text style={[styles.messageText, { color: isMe ? '#000000' : '#FFFFFF' }]}>
+            <Text style={[styles.messageText, { color: isMe ? colors.bubbleSentText : colors.bubbleReceivedText }]}>
               {item.text}
             </Text>
           )}
           <View style={styles.bubbleMeta}>
-            <Text style={[styles.timestamp, { color: isMe ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)' }]}>
+            <Text style={[styles.timestamp, { color: metaColor }]}>
               {formatMsgTime(item.timestamp)}
             </Text>
             {isMe && <View style={styles.statusWrapper}>{renderStatusIcon(item.status)}</View>}
@@ -643,7 +647,7 @@ export const ChatScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#030303', '#0A0A0C', '#121215']}
+        colors={colors.gradient as any}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
@@ -651,32 +655,32 @@ export const ChatScreen: React.FC = () => {
         <View style={[
           styles.header,
           {
-            backgroundColor: 'rgba(18, 18, 20, 0.65)',
-            borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+            backgroundColor: colors.headerBackground,
+            borderBottomColor: colors.border,
           }
         ]}>
           <View style={styles.headerLeft}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+              <Ionicons name="chevron-back" size={24} color={colors.icon} />
             </TouchableOpacity>
-            <View style={[styles.avatarHeader, { backgroundColor: '#222226', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }]}>
-              <Text style={styles.avatarHeaderText}>{name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</Text>
+            <View style={[styles.avatarHeader, { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border }]}>
+              <Text style={[styles.avatarHeaderText, { color: colors.text }]}>{name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}</Text>
             </View>
             <View style={styles.headerInfo}>
-              <Text style={[styles.headerName, { color: '#FFFFFF' }]} numberOfLines={1}>
+              <Text style={[styles.headerName, { color: colors.text }]} numberOfLines={1}>
                 {name}
               </Text>
-              <Text style={[styles.headerStatus, { color: !isSocketConnected ? '#FF3B30' : isPeerTyping ? '#C5A880' : isPeerOnline ? '#4CD964' : colors.textSecondary }]}>
+              <Text style={[styles.headerStatus, { color: !isSocketConnected ? colors.danger : isPeerTyping ? colors.accent : isPeerOnline ? '#4CD964' : colors.textSecondary }]}>
                 {!isSocketConnected ? 'connecting...' : isPeerTyping ? 'typing...' : isPeerOnline ? 'online' : 'offline'}
               </Text>
             </View>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity style={styles.headerActionIcon}>
-              <Ionicons name="videocam-outline" size={24} color="#FFFFFF" />
+              <Ionicons name="videocam-outline" size={24} color={colors.icon} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.headerActionIcon}>
-              <Ionicons name="call-outline" size={22} color="#FFFFFF" />
+              <Ionicons name="call-outline" size={22} color={colors.icon} />
             </TouchableOpacity>
             <TouchableOpacity 
               onPress={handleHeaderMenuPress} 
@@ -712,8 +716,8 @@ export const ChatScreen: React.FC = () => {
           <View style={[
             styles.inputBar,
             {
-              backgroundColor: 'rgba(18, 18, 22, 0.85)',
-              borderColor: 'rgba(255, 255, 255, 0.06)',
+              backgroundColor: colors.headerBackground,
+              borderColor: colors.border,
             }
           ]}>
             <TouchableOpacity 
@@ -721,7 +725,7 @@ export const ChatScreen: React.FC = () => {
               style={styles.attachButton}
               activeOpacity={0.7}
             >
-              <Ionicons name="add" size={26} color="#FFFFFF" />
+              <Ionicons name="add" size={26} color={colors.icon} />
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -732,7 +736,7 @@ export const ChatScreen: React.FC = () => {
               <Ionicons 
                 name={showEmojiPicker ? "keypad-outline" : "happy-outline"} 
                 size={24} 
-                color="#FFFFFF" 
+                color={colors.icon} 
               />
             </TouchableOpacity>
 
@@ -742,9 +746,9 @@ export const ChatScreen: React.FC = () => {
               style={[
                 styles.input,
                 {
-                  backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                  color: '#FFFFFF',
-                  borderColor: 'rgba(255, 255, 255, 0.04)',
+                  backgroundColor: colors.input,
+                  color: colors.text,
+                  borderColor: colors.border,
                 }
               ]}
               placeholder="Secure message..."
@@ -759,7 +763,7 @@ export const ChatScreen: React.FC = () => {
               style={[
                 styles.sendButton,
                 {
-                  backgroundColor: inputText.trim() !== '' ? '#FFFFFF' : 'rgba(255, 255, 255, 0.08)',
+                  backgroundColor: inputText.trim() !== '' ? colors.accent : colors.border,
                 },
               ]}
               onPress={handleSend}
@@ -769,7 +773,7 @@ export const ChatScreen: React.FC = () => {
               <Ionicons
                 name="send"
                 size={16}
-                color={inputText.trim() !== '' ? '#000000' : 'rgba(255, 255, 255, 0.3)'}
+                color={inputText.trim() !== '' ? colors.bubbleSentText : colors.placeholder}
               />
             </TouchableOpacity>
           </View>

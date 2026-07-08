@@ -96,15 +96,15 @@ export const SplashScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#030303', '#0A0A0C', '#121215']}
+        colors={colors.gradient as any}
         style={StyleSheet.absoluteFill}
       />
       <Animated.View style={[styles.logoContainer, animatedStyle]}>
-        <View style={[styles.iconWrapper, { backgroundColor: '#1A1A24', borderWidth: 1, borderColor: '#C5A880' }]}>
-          <Ionicons name="shield-checkmark" size={60} color="#C5A880" />
+        <View style={[styles.iconWrapper, { backgroundColor: colors.accentLight, borderWidth: 1, borderColor: colors.accent }]}>
+          <Ionicons name="shield-checkmark" size={60} color={colors.accent} />
         </View>
-        <Text style={[styles.title, { color: '#FFFFFF' }]}>Secure Chat</Text>
-        <Text style={[styles.subtitle, { color: '#C5A880' }]}>
+        <Text style={[styles.title, { color: colors.text }]}>Secure Chat</Text>
+        <Text style={[styles.subtitle, { color: colors.accent }]}>
           End-to-End Encrypted
         </Text>
       </Animated.View>

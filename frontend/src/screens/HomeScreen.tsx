@@ -64,11 +64,11 @@ export const HomeScreen: React.FC = () => {
       const session = await getSession();
       if (session) {
         setCurrentUserId(session.user?.id || (session.user as any)?._id || '');
-        
+
         // 1. Establish Socket Connection
         const activeSocket = connectSocket(session.backendToken || '');
         setSocket(activeSocket);
-        
+
         // 2. Fetch Chat List from API
         const response = await getChats();
         if (response.status === 'success' && response.chats) {
@@ -207,7 +207,7 @@ export const HomeScreen: React.FC = () => {
     const peerName = peer.name;
     const avatarText = peerName.split(' ').map((n: any) => n[0]).join('').slice(0, 2).toUpperCase();
     const avatarColor = getAvatarColor(peerName);
-    
+
     const isTyping = typingUsers[peer._id];
     let lastMsgText = isTyping ? 'typing...' : (item.lastMessage?.text ? decryptMessage(item.lastMessage.text, item._id) : 'No messages yet');
     if (lastMsgText.startsWith('[IMAGE]:')) {
@@ -215,7 +215,7 @@ export const HomeScreen: React.FC = () => {
     } else if (lastMsgText.startsWith('[FILE]:')) {
       lastMsgText = '📄 File';
     }
-    
+
     const timeFormatted = formatTime(item.lastMessage?.timestamp || item.updatedAt);
     const isOnline = onlineUsers.has(peer._id);
     const unreadCount = item.unreadCount || 0;
@@ -225,8 +225,8 @@ export const HomeScreen: React.FC = () => {
         style={[
           styles.chatItem,
           {
-            backgroundColor: 'rgba(20, 20, 24, 0.55)',
-            borderColor: 'rgba(255, 255, 255, 0.05)',
+            backgroundColor: colors.card,
+            borderColor: colors.border,
             borderBottomWidth: 1,
           }
         ]}
@@ -246,18 +246,18 @@ export const HomeScreen: React.FC = () => {
       >
         {/* Avatar Container */}
         <View style={styles.avatarContainer}>
-          <View style={[styles.avatar, { backgroundColor: avatarColor, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }]}>
+          <View style={[styles.avatar, { backgroundColor: avatarColor, borderWidth: 1, borderColor: colors.border }]}>
             <Text style={styles.avatarText}>{avatarText}</Text>
           </View>
           {isOnline && (
-            <View style={[styles.onlineIndicator, { borderColor: '#050505' }]} />
+            <View style={[styles.onlineIndicator, { borderColor: colors.background }]} />
           )}
         </View>
 
         {/* Info Middle Column */}
         <View style={styles.chatInfo}>
           <View style={styles.chatHeaderRow}>
-            <Text style={[styles.chatName, { color: '#FFFFFF' }]} numberOfLines={1}>
+            <Text style={[styles.chatName, { color: colors.text }]} numberOfLines={1}>
               {peerName}
             </Text>
             <Text style={[styles.chatTime, { color: colors.textSecondary }]}>
@@ -265,21 +265,21 @@ export const HomeScreen: React.FC = () => {
             </Text>
           </View>
           <View style={styles.chatMessageRow}>
-            <Text 
+            <Text
               style={[
-                styles.lastMessage, 
-                { 
-                  color: isTyping ? '#C5A880' : colors.textSecondary,
+                styles.lastMessage,
+                {
+                  color: isTyping ? colors.accent : colors.textSecondary,
                   fontWeight: isTyping ? '600' : '400'
                 }
-              ]} 
+              ]}
               numberOfLines={1}
             >
               {lastMsgText}
             </Text>
             {unreadCount > 0 && (
-              <View style={[styles.unreadBadge, { backgroundColor: '#C5A880' }]}>
-                <Text style={[styles.unreadCountText, { color: '#000000' }]}>{unreadCount}</Text>
+              <View style={[styles.unreadBadge, { backgroundColor: colors.accent }]}>
+                <Text style={[styles.unreadCountText, { color: colors.bubbleSentText }]}>{unreadCount}</Text>
               </View>
             )}
           </View>
@@ -292,22 +292,22 @@ export const HomeScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#030303', '#0A0A0C', '#121215']}
+        colors={colors.gradient as any}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Chats</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Chats</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity onPress={() => navigation.navigate('NewChat')} style={styles.headerIcon}>
-              <Ionicons name="create-outline" size={24} color="#FFFFFF" />
+              <Ionicons name="create-outline" size={24} color={colors.icon} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.headerIcon}>
-              <Ionicons name="person-circle-outline" size={26} color="#FFFFFF" />
+              <Ionicons name="person-circle-outline" size={26} color={colors.icon} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.headerIcon}>
-              <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
+              <Ionicons name="settings-outline" size={24} color={colors.icon} />
             </TouchableOpacity>
           </View>
         </View>
@@ -317,13 +317,13 @@ export const HomeScreen: React.FC = () => {
           <View style={[
             styles.searchBar,
             {
-              backgroundColor: 'rgba(255, 255, 255, 0.03)',
-              borderColor: 'rgba(255, 255, 255, 0.06)',
+              backgroundColor: colors.input,
+              borderColor: colors.border,
             }
           ]}>
             <Ionicons name="search" size={16} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
-              style={[styles.searchInput, { color: '#FFFFFF' }]}
+              style={[styles.searchInput, { color: colors.text }]}
               placeholder="Search conversations..."
               placeholderTextColor={colors.placeholder}
               value={searchQuery}

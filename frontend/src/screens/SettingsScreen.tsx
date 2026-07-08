@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export const SettingsScreen: React.FC = () => {
-  const { colors, toggleTheme, isDark } = useTheme();
+  const { mode, colors, toggleTheme, isDark } = useTheme();
   const navigation = useNavigation();
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -24,7 +24,7 @@ export const SettingsScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#030303', '#0A0A0C', '#121215']}
+        colors={colors.gradient as any}
         style={StyleSheet.absoluteFill}
       />
       <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]} edges={['top', 'bottom']}>
@@ -32,14 +32,14 @@ export const SettingsScreen: React.FC = () => {
         <View style={[
           styles.header,
           {
-            backgroundColor: 'rgba(18, 18, 20, 0.65)',
-            borderBottomColor: 'rgba(255, 255, 255, 0.06)',
+            backgroundColor: colors.headerBackground,
+            borderBottomColor: colors.border,
           }
         ]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+            <Ionicons name="chevron-back" size={24} color={colors.icon} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>Settings</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -49,39 +49,41 @@ export const SettingsScreen: React.FC = () => {
           <View style={[
             styles.card,
             {
-              backgroundColor: 'rgba(20, 20, 24, 0.55)',
-              borderColor: 'rgba(255, 255, 255, 0.05)',
+              backgroundColor: colors.card,
+              borderColor: colors.border,
             }
           ]}>
-            {/* Dark Mode Row */}
-            <View style={styles.row}>
+            {/* Active Theme Cycle Row */}
+            <TouchableOpacity onPress={toggleTheme} style={styles.row}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconBox, { backgroundColor: '#1A1A24', borderWidth: 1, borderColor: '#C5A880' }]}>
-                  <Ionicons name="color-palette" size={18} color="#C5A880" />
+                <View style={[styles.iconBox, { backgroundColor: colors.accentLight, borderWidth: 1, borderColor: colors.accent }]}>
+                  <Ionicons name="color-palette" size={18} color={colors.accent} />
                 </View>
-                <Text style={[styles.rowText, { color: '#FFFFFF' }]}>Obsidian Theme</Text>
+                <Text style={[styles.rowText, { color: colors.text }]}>Theme</Text>
               </View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#C5A880' }}>Active</Text>
-            </View>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: colors.accent, textTransform: 'capitalize' }}>
+                {mode}
+              </Text>
+            </TouchableOpacity>
 
             {/* Notifications Row */}
             <View style={[
               styles.row,
               {
                 borderTopWidth: StyleSheet.hairlineWidth,
-                borderTopColor: 'rgba(255, 255, 255, 0.06)',
+                borderTopColor: colors.border,
               }
             ]}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconBox, { backgroundColor: '#222226', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }]}>
-                  <Ionicons name="notifications" size={18} color="#FFFFFF" />
+                <View style={[styles.iconBox, { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border }]}>
+                  <Ionicons name="notifications" size={18} color={colors.icon} />
                 </View>
-                <Text style={[styles.rowText, { color: '#FFFFFF' }]}>Push Notifications</Text>
+                <Text style={[styles.rowText, { color: colors.text }]}>Push Notifications</Text>
               </View>
               <Switch
                 value={notificationsEnabled}
                 onValueChange={setNotificationsEnabled}
-                trackColor={{ false: '#767577', true: '#FFFFFF' }}
+                trackColor={{ false: '#767577', true: colors.accent }}
                 thumbColor={Platform.OS === 'android' ? '#f4f3f4' : undefined}
               />
             </View>
@@ -92,40 +94,60 @@ export const SettingsScreen: React.FC = () => {
           <View style={[
             styles.card,
             {
-              backgroundColor: 'rgba(20, 20, 24, 0.55)',
-              borderColor: 'rgba(255, 255, 255, 0.05)',
+              backgroundColor: colors.card,
+              borderColor: colors.border,
             }
           ]}>
             {/* Read Receipts Row */}
             <View style={styles.row}>
               <View style={styles.rowLeft}>
-                <View style={[styles.iconBox, { backgroundColor: '#222226', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }]}>
-                  <Ionicons name="eye" size={18} color="#FFFFFF" />
+                <View style={[styles.iconBox, { backgroundColor: colors.input, borderWidth: 1, borderColor: colors.border }]}>
+                  <Ionicons name="eye" size={18} color={colors.icon} />
                 </View>
-                <Text style={[styles.rowText, { color: '#FFFFFF' }]}>Read Receipts</Text>
+                <Text style={[styles.rowText, { color: colors.text }]}>Read Receipts</Text>
               </View>
               <Switch
                 value={readReceiptsEnabled}
                 onValueChange={setReadReceiptsEnabled}
-                trackColor={{ false: '#767577', true: '#FFFFFF' }}
+                trackColor={{ false: '#767577', true: colors.accent }}
                 thumbColor={Platform.OS === 'android' ? '#f4f3f4' : undefined}
               />
             </View>
+
+            {/* NFC Key Exchange Row */}
+            <TouchableOpacity
+              onPress={() => navigation.navigate('NFCShare' as never)}
+              style={[
+                styles.row,
+                {
+                  borderTopWidth: StyleSheet.hairlineWidth,
+                  borderTopColor: colors.border,
+                }
+              ]}
+            >
+              <View style={styles.rowLeft}>
+                <View style={[styles.iconBox, { backgroundColor: colors.accentLight, borderWidth: 1, borderColor: colors.accent }]}>
+                  <Ionicons name="radio" size={18} color={colors.accent} />
+                </View>
+                <Text style={[styles.rowText, { color: colors.text }]}>NFC Key Exchange</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
 
           {/* E2E Info Card */}
           <View style={[
             styles.securityCard,
             {
-              backgroundColor: 'rgba(197, 168, 128, 0.05)',
-              borderColor: 'rgba(197, 168, 128, 0.15)',
+              backgroundColor: colors.accentLight,
+              borderColor: colors.accentBorder,
             }
           ]}>
             <View style={styles.securityHeader}>
-              <Ionicons name="shield-checkmark" size={24} color="#C5A880" />
-              <Text style={[styles.securityTitle, { color: '#C5A880' }]}>End-to-End Encrypted</Text>
+              <Ionicons name="shield-checkmark" size={24} color={colors.accent} />
+              <Text style={[styles.securityTitle, { color: colors.accent }]}>End-to-End Encrypted</Text>
             </View>
-            <Text style={[styles.securityText, { color: '#FFFFFF' }]}>
+            <Text style={[styles.securityText, { color: colors.text }]}>
               All chats in Secure Chat are locked with dual-layer cryptography (AES-256 and RSA). Nobody outside this chat, not even the server network, can read your messages or see shared media files.
             </Text>
           </View>

@@ -247,7 +247,7 @@ export const LoginScreen: React.FC = () => {
       <View style={styles.container}>
         {/* Looping Fluid Background Gradient Canvas */}
         <LinearGradient
-          colors={['#030303', '#0A0A0C', '#121215']}
+          colors={colors.gradient as any}
           style={StyleSheet.absoluteFill}
         >
           <Animated.View
@@ -255,10 +255,10 @@ export const LoginScreen: React.FC = () => {
               styles.glowBlob,
               animSpot1,
               {
-                backgroundColor: '#1E1B29', // Smoky dark purple
+                backgroundColor: colors.accentLight, // Dynamic smoky highlight
                 left: -60,
                 top: 100,
-                opacity: 0.2,
+                opacity: 0.15,
               },
             ]}
           />
@@ -267,10 +267,10 @@ export const LoginScreen: React.FC = () => {
               styles.glowBlob,
               animSpot2,
               {
-                backgroundColor: '#162224', // Smoky dark teal/grey
+                backgroundColor: colors.accentLight,
                 right: -60,
                 bottom: 120,
-                opacity: 0.18,
+                opacity: 0.12,
               },
             ]}
           />
@@ -279,10 +279,10 @@ export const LoginScreen: React.FC = () => {
               styles.glowBlob,
               animSpot3,
               {
-                backgroundColor: '#261921', // Smoky dark rose/charcoal
+                backgroundColor: colors.accentLight,
                 left: 80,
                 bottom: -60,
-                opacity: 0.15,
+                opacity: 0.1,
               },
             ]}
           />
@@ -298,15 +298,15 @@ export const LoginScreen: React.FC = () => {
               <View style={[
                 styles.glassCard,
                 {
-                  backgroundColor: 'rgba(18, 18, 20, 0.65)',
-                  borderColor: 'rgba(255, 255, 255, 0.06)',
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
                 }
               ]}>
                 <View style={styles.header}>
-                  <View style={[styles.logoBadge, { backgroundColor: 'rgba(197, 168, 128, 0.1)' }]}>
-                    <Ionicons name="chatbubbles" size={32} color="#C5A880" />
+                  <View style={[styles.logoBadge, { backgroundColor: colors.accentLight }]}>
+                    <Ionicons name="chatbubbles" size={32} color={colors.accent} />
                   </View>
-                  <Text style={[styles.title, { color: '#FFFFFF' }]}>
+                  <Text style={[styles.title, { color: colors.text }]}>
                     {authMode === 'signup' ? 'Create Account' : 'Welcome Back'}
                   </Text>
                   <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
@@ -320,7 +320,11 @@ export const LoginScreen: React.FC = () => {
                   {authMode === 'signin' && (
                     <View style={styles.methodSelector}>
                       <TouchableOpacity
-                        style={[styles.methodButton, signInMethod === 'email' && styles.methodActiveButton]}
+                        style={[
+                          styles.methodButton,
+                          { borderColor: colors.border },
+                          signInMethod === 'email' && { backgroundColor: colors.accent, borderColor: colors.accent }
+                        ]}
                         onPress={() => {
                           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                           setSignInMethod('email');
@@ -330,15 +334,23 @@ export const LoginScreen: React.FC = () => {
                         <Ionicons
                           name="mail"
                           size={16}
-                          color={signInMethod === 'email' ? '#000000' : 'rgba(255, 255, 255, 0.5)'}
+                          color={signInMethod === 'email' ? colors.bubbleSentText : colors.textSecondary}
                           style={{ marginRight: 6 }}
                         />
-                        <Text style={[styles.methodText, signInMethod === 'email' && styles.methodActiveText]}>
+                        <Text style={[
+                          styles.methodText,
+                          { color: colors.textSecondary },
+                          signInMethod === 'email' && { color: colors.bubbleSentText, fontWeight: '700' }
+                        ]}>
                           Email
                         </Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.methodButton, signInMethod === 'phone' && styles.methodActiveButton]}
+                        style={[
+                          styles.methodButton,
+                          { borderColor: colors.border },
+                          signInMethod === 'phone' && { backgroundColor: colors.accent, borderColor: colors.accent }
+                        ]}
                         onPress={() => {
                           LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                           setSignInMethod('phone');
@@ -348,10 +360,14 @@ export const LoginScreen: React.FC = () => {
                         <Ionicons
                           name="call"
                           size={16}
-                          color={signInMethod === 'phone' ? '#000000' : 'rgba(255, 255, 255, 0.5)'}
+                          color={signInMethod === 'phone' ? colors.bubbleSentText : colors.textSecondary}
                           style={{ marginRight: 6 }}
                         />
-                        <Text style={[styles.methodText, signInMethod === 'phone' && styles.methodActiveText]}>
+                        <Text style={[
+                          styles.methodText,
+                          { color: colors.textSecondary },
+                          signInMethod === 'phone' && { color: colors.bubbleSentText, fontWeight: '700' }
+                        ]}>
                           Phone / OTP
                         </Text>
                       </TouchableOpacity>
@@ -362,12 +378,12 @@ export const LoginScreen: React.FC = () => {
                     <View style={[
                       styles.inputWrapper,
                       {
-                        backgroundColor: 'rgba(0,0,0,0.4)',
-                        borderColor: 'rgba(255,255,255,0.06)',
+                        backgroundColor: colors.input,
+                        borderColor: colors.border,
                       }
                     ]}>
                       <TextInput
-                        style={[styles.inputField, { color: '#FFFFFF' }]}
+                        style={[styles.inputField, { color: colors.text }]}
                         placeholder="Full name"
                         placeholderTextColor={colors.placeholder}
                         value={name}
@@ -381,12 +397,12 @@ export const LoginScreen: React.FC = () => {
                     <View style={[
                       styles.inputWrapper,
                       {
-                        backgroundColor: 'rgba(0,0,0,0.4)',
-                        borderColor: 'rgba(255,255,255,0.06)',
+                        backgroundColor: colors.input,
+                        borderColor: colors.border,
                       }
                     ]}>
                       <TextInput
-                        style={[styles.inputField, { color: '#FFFFFF' }]}
+                        style={[styles.inputField, { color: colors.text }]}
                         placeholder="Email address"
                         placeholderTextColor={colors.placeholder}
                         keyboardType="email-address"
@@ -402,12 +418,12 @@ export const LoginScreen: React.FC = () => {
                     <View style={[
                       styles.inputWrapper,
                       {
-                        backgroundColor: 'rgba(0,0,0,0.4)',
-                        borderColor: 'rgba(255,255,255,0.06)',
+                        backgroundColor: colors.input,
+                        borderColor: colors.border,
                       }
                     ]}>
                       <TextInput
-                        style={[styles.inputField, { color: '#FFFFFF' }]}
+                        style={[styles.inputField, { color: colors.text }]}
                         placeholder={authMode === 'signup' ? "Phone number (optional)" : "Phone number (e.g. +91 98765 43210)"}
                         placeholderTextColor={colors.placeholder}
                         keyboardType="phone-pad"
@@ -421,12 +437,12 @@ export const LoginScreen: React.FC = () => {
                     <View style={[
                       styles.inputWrapper,
                       {
-                        backgroundColor: 'rgba(0,0,0,0.4)',
-                        borderColor: 'rgba(255,255,255,0.06)',
+                        backgroundColor: colors.input,
+                        borderColor: colors.border,
                       }
                     ]}>
                       <TextInput
-                        style={[styles.inputField, { color: '#FFFFFF' }]}
+                        style={[styles.inputField, { color: colors.text }]}
                         placeholder="Location / Country (optional)"
                         placeholderTextColor={colors.placeholder}
                         value={locationStr}
@@ -439,12 +455,12 @@ export const LoginScreen: React.FC = () => {
                     <View style={[
                       styles.passwordWrapper, 
                       { 
-                        borderColor: 'rgba(255,255,255,0.06)', 
-                        backgroundColor: 'rgba(0,0,0,0.4)' 
+                        borderColor: colors.border, 
+                        backgroundColor: colors.input 
                       }
                     ]}>
                       <TextInput
-                        style={[styles.passwordInput, { color: '#FFFFFF' }]}
+                        style={[styles.passwordInput, { color: colors.text }]}
                         placeholder="Password"
                         placeholderTextColor={colors.placeholder}
                         secureTextEntry={!showPassword}
@@ -473,7 +489,7 @@ export const LoginScreen: React.FC = () => {
                       style={[
                         styles.button,
                         {
-                          backgroundColor: isFormValid ? '#FFFFFF' : 'rgba(255, 255, 255, 0.08)',
+                          backgroundColor: isFormValid ? colors.accent : colors.border,
                         },
                       ]}
                       disabled={!isFormValid || isLoading}
@@ -483,16 +499,16 @@ export const LoginScreen: React.FC = () => {
                       activeOpacity={0.8}
                     >
                       {isLoading ? (
-                        <ActivityIndicator size="small" color="#000000" />
+                        <ActivityIndicator size="small" color={colors.bubbleSentText} />
                       ) : (
                         <>
-                          <Text style={[styles.buttonText, { color: isFormValid ? '#000000' : 'rgba(255,255,255,0.3)' }]}>
+                          <Text style={[styles.buttonText, { color: isFormValid ? colors.bubbleSentText : colors.placeholder }]}>
                             {authMode === 'signup' ? 'Sign Up' : signInMethod === 'email' ? 'Sign In' : 'Send OTP'}
                           </Text>
                           <Ionicons
                             name="checkmark-circle"
                             size={18}
-                            color={isFormValid ? '#000000' : 'rgba(255,255,255,0.3)'}
+                            color={isFormValid ? colors.bubbleSentText : colors.placeholder}
                             style={styles.buttonIcon}
                           />
                         </>
@@ -508,7 +524,7 @@ export const LoginScreen: React.FC = () => {
                     style={styles.toggleLink}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.toggleLinkText, { color: '#C5A880' }]}>
+                    <Text style={[styles.toggleLinkText, { color: colors.accent }]}>
                       {authMode === 'signup' ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
                     </Text>
                   </TouchableOpacity>
