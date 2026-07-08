@@ -157,7 +157,7 @@ export const NFCShareScreen: React.FC = () => {
       if (!writeSuccess) {
         try {
           await NfcManager.requestTechnology(NfcTech.NdefFormatable);
-          await NfcManager.ndefFormatableHandler.format(bytes);
+          await NfcManager.ndefFormatableHandlerAndroid.formatNdef(bytes);
           writeSuccess = true;
         } catch (formatError: any) {
           console.warn('NdefFormatable write/format failed:', formatError.message || formatError);
