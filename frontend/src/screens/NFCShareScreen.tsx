@@ -131,8 +131,6 @@ export const NFCShareScreen: React.FC = () => {
     setStatusText('Place your device near a writable NFC Tag...');
 
     try {
-      await NfcManager.requestTechnology(NfcTech.Ndef);
-      
       const payloadString = JSON.stringify({
         id: currentUser.id,
         name: currentUser.name,
@@ -142,12 +140,42 @@ export const NFCShareScreen: React.FC = () => {
         Ndef.textRecord(payloadString),
       ]);
 
-      await NfcManager.ndefHandler.writeNdefMessage(bytes);
-      setStatusText('Profile successfully written to NFC card!');
-      Alert.alert('Success', 'Profile written successfully. You can now tap this card on another phone to start a secure chat!');
+      let writeSuccess = false;
+
+      // 1. Try writing via standard Ndef first
+      try {
+        await NfcManager.requestTechnology(NfcTech.Ndef);
+        await NfcManager.ndefHandler.writeNdefMessage(bytes);
+        writeSuccess = true;
+      } catch (ndefError: any) {
+        console.warn('Standard NDEF write failed, attempting NdefFormatable...', ndefError.message || ndefError);
+      } finally {
+        await NfcManager.cancelTechnologyRequest().catch(() => {});
+      }
+
+      // 2. If Ndef write failed (common for blank/raw tags), try NdefFormatable
+      if (!writeSuccess) {
+        try {
+          await NfcManager.requestTechnology(NfcTech.NdefFormatable);
+          await NfcManager.ndefFormatableHandler.format(bytes);
+          writeSuccess = true;
+        } catch (formatError: any) {
+          console.warn('NdefFormatable write/format failed:', formatError.message || formatError);
+        } finally {
+          await NfcManager.cancelTechnologyRequest().catch(() => {});
+        }
+      }
+
+      if (writeSuccess) {
+        setStatusText('Profile successfully written to NFC card!');
+        Alert.alert('Success', 'Profile written successfully. You can now tap this card on another phone to start a secure chat!');
+      } else {
+        throw new Error('NFC tag is not writable with standard NDEF or NdefFormatable protocols.');
+      }
     } catch (ex: any) {
       console.warn('NFC Write Exception:', ex);
       setStatusText('NFC Write failed/cancelled.');
+      Alert.alert('Write Failed', ex.message || 'Unable to write profile data to the NFC tag.');
     } finally {
       setIsWriting(false);
       NfcManager.cancelTechnologyRequest().catch(() => {});
