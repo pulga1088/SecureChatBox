@@ -14,7 +14,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import NfcManager, { NfcTech } from 'react-native-nfc-manager';
+import NfcManager, { NfcTech, NfcEvents } from 'react-native-nfc-manager';
 import { useNfcAuth } from '../context/NfcAuthContext';
 import { getSession, saveSession, clearSession } from '../services/firebaseAuth';
 import { BACKEND_URL } from '../services/apiService';
@@ -101,6 +101,13 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
     }
   }, [scanning]);
 
+  const stopNfcScanning = async () => {
+    NfcManager.setEventListener(NfcEvents.DiscoverTag, null);
+    await NfcManager.unregisterTagEvent().catch(() => {});
+    setScanning(false);
+    isScanningActive.current = false;
+  };
+
   // Main NFC listening loop
   const startNfcScanning = async () => {
     if (isScanningActive.current) return;
@@ -124,90 +131,81 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
         return;
       }
 
-      // 2. Request technology (supports standard ISO 14443-A tags via NfcA)
-      await NfcManager.requestTechnology(NfcTech.NfcA);
-      
-      // 3. Read tag unique hardware ID (UID)
-      const tag = await NfcManager.getTag();
-      if (!tag || !tag.id) {
-        throw new Error('Could not read NFC tag UID.');
-      }
+      // 2. Set up native listener for continuous tag detection
+      NfcManager.setEventListener(NfcEvents.DiscoverTag, async (tag) => {
+        try {
+          if (!tag || !tag.id) return;
+          const uid = tag.id;
+          console.log('[NfcGuard] Continuous Scanned card UID:', uid);
 
-      const uid = tag.id;
-      console.log('[NfcGuard] Scanned card UID:', uid);
+          if (sessionUser?.nfcRegistered) {
+            // --- Verification Flow ---
+            setStatusText('Verifying security key...');
+            const response = await fetch(`${BACKEND_URL}/api/auth/nfc/verify`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${backendToken}`,
+              },
+              body: JSON.stringify({ nfcUid: uid }),
+            });
 
-      if (sessionUser?.nfcRegistered) {
-        // --- Verification Flow ---
-        setStatusText('Verifying security key...');
-        const response = await fetch(`${BACKEND_URL}/api/auth/nfc/verify`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${backendToken}`,
-          },
-          body: JSON.stringify({ nfcUid: uid }),
-        });
+            const data = await response.json();
+            if (!response.ok || data.status === 'error') {
+              throw new Error(data.message || 'Verification failed. Incorrect NFC key.');
+            }
 
-        const data = await response.json();
-        if (!response.ok || data.status === 'error') {
-          throw new Error(data.message || 'Verification failed. Incorrect NFC key.');
+            // Successfully verified
+            hasUnlocked.current = true;
+            await stopNfcScanning();
+            unlockNfcSession();
+          } else {
+            // --- Registration Flow ---
+            setStatusText('Registering hardware key...');
+            const response = await fetch(`${BACKEND_URL}/api/auth/nfc/register`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${backendToken}`,
+              },
+              body: JSON.stringify({ nfcUid: uid }),
+            });
+
+            const data = await response.json();
+            if (!response.ok || data.status === 'error') {
+              throw new Error(data.message || 'Registration failed.');
+            }
+
+            // Update local session to mark card registered
+            const currentSession = await getSession();
+            if (currentSession && currentSession.user) {
+              const updatedUser = { ...currentSession.user, nfcRegistered: true };
+              await saveSession({
+                ...currentSession,
+                user: updatedUser,
+              });
+              setSessionUser(updatedUser);
+            }
+
+            Alert.alert('Key Registered', 'This NFC card is now linked to your secure chat account!');
+            hasUnlocked.current = true;
+            await stopNfcScanning();
+            unlockNfcSession();
+          }
+        } catch (err: any) {
+          console.warn('[NfcGuard] NFC Event Processing Error:', err);
+          setNfcError(err.message || 'An error occurred during NFC scan.');
+          setStatusText('Scan failed. Try tapping again.');
         }
+      });
 
-        // Successfully verified
-        hasUnlocked.current = true;
-        unlockNfcSession();
-      } else {
-        // --- Registration Flow ---
-        setStatusText('Registering hardware key...');
-        const response = await fetch(`${BACKEND_URL}/api/auth/nfc/register`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${backendToken}`,
-          },
-          body: JSON.stringify({ nfcUid: uid }),
-        });
-
-        const data = await response.json();
-        if (!response.ok || data.status === 'error') {
-          throw new Error(data.message || 'Registration failed.');
-        }
-
-        // Update local session to mark card registered
-        const currentSession = await getSession();
-        if (currentSession && currentSession.user) {
-          const updatedUser = { ...currentSession.user, nfcRegistered: true };
-          await saveSession({
-            ...currentSession,
-            user: updatedUser,
-          });
-          setSessionUser(updatedUser);
-        }
-
-        Alert.alert('Key Registered', 'This NFC card is now linked to your secure chat account!');
-        hasUnlocked.current = true;
-        unlockNfcSession();
-      }
+      // 3. Register native tag event (starts active listener)
+      await NfcManager.registerTagEvent();
     } catch (err: any) {
-      console.warn('[NfcGuard] NFC Scanning Error:', err);
-      // Don't show alert for user cancellation
-      if (err !== 'cancelled' && err?.message !== 'cancelled') {
-        setNfcError(err.message || 'An error occurred during NFC scan.');
-      }
-      setStatusText('Scan failed. Try tapping again.');
-    } finally {
-      // Clean up NFC technology request
-      await NfcManager.cancelTechnologyRequest().catch(() => {});
+      console.warn('[NfcGuard] NFC registration error:', err);
+      setNfcError(err.message || 'Failed to start NFC listener.');
       setScanning(false);
       isScanningActive.current = false;
-      
-      // Auto-restart scanning loop if still locked and route requires guard
-      const needsGuard = !(activeRoute === 'Splash' || activeRoute === 'Login' || activeRoute === 'OTP');
-      if (needsGuard && !isNfcUnlocked && !hasUnlocked.current) {
-        setTimeout(() => {
-          startNfcScanning();
-        }, 2500);
-      }
     }
   };
 
@@ -218,13 +216,11 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
       hasUnlocked.current = false;
       startNfcScanning();
     } else {
-      NfcManager.cancelTechnologyRequest().catch(() => {});
-      setScanning(false);
-      isScanningActive.current = false;
+      stopNfcScanning();
     }
 
     return () => {
-      NfcManager.cancelTechnologyRequest().catch(() => {});
+      stopNfcScanning();
     };
   }, [activeRoute, isNfcUnlocked, sessionUser]);
 
@@ -236,8 +232,7 @@ export const NfcGuard: React.FC<NfcGuardProps> = ({ children, activeRoute }) => 
         if (needsGuard && !isNfcUnlocked && sessionUser) {
           console.log('[NfcGuard] App resumed. Re-initializing NFC scanning...');
           // Clean up old dead session first
-          await NfcManager.cancelTechnologyRequest().catch(() => {});
-          isScanningActive.current = false;
+          await stopNfcScanning();
           hasUnlocked.current = false;
           // Start fresh scan
           startNfcScanning();
